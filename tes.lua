@@ -2345,28 +2345,24 @@ function Chloex:Window(GuiConfig)
         Button.BackgroundTransparency = 1
         Button.Text = ""
 
-        Button.MouseButton1Click:Connect(function()
-            if DropShadowHolder then
-                DropShadowHolder.Visible = not DropShadowHolder.Visible
-            end
-        end)
-
-        -- Drag ketat: hanya mulai kalau press dimulai BENAR-BENAR di dalam area tombol
+        local UserInputService = game:GetService("UserInputService")
         local dragging = false
-        local dragInput = nil
+        local activeInput = nil
         local dragStart = nil
         local startPos = nil
+        local moved = false
+        local CLICK_THRESHOLD = 6
 
-        local function isInsideButton(pos)
-            local absPos = MainButton.AbsolutePosition
-            local absSize = MainButton.AbsoluteSize
-            return pos.X >= absPos.X and pos.X <= (absPos.X + absSize.X)
-               and pos.Y >= absPos.Y and pos.Y <= (absPos.Y + absSize.Y)
-        end
+        local function updatePosition(position)
+            if not dragging or not dragStart or not startPos then
+                return
+            end
 
-        local function update(input)
-            if not dragStart or not startPos then return end
-            local delta = input.Position - dragStart
+            local delta = position - dragStart
+            if delta.Magnitude >= CLICK_THRESHOLD then
+                moved = true
+            end
+
             MainButton.Position = UDim2.new(
                 startPos.X.Scale,
                 startPos.X.Offset + delta.X,
@@ -2375,31 +2371,52 @@ function Chloex:Window(GuiConfig)
             )
         end
 
+        -- Drag HARUS dimulai dari dalam Button.
+        -- Input yang dimulai di luar tidak akan pernah mengambil drag.
         Button.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                -- Cek ulang posisi biar gak ke-trigger kalau geser dari luar
-                if isInsideButton(input.Position) then
-                    dragging = true
-                    dragInput = input
-                    dragStart = input.Position
-                    startPos = MainButton.Position
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                and input.UserInputType ~= Enum.UserInputType.Touch then
+                return
+            end
+
+            dragging = true
+            activeInput = input
+            dragStart = input.Position
+            startPos = MainButton.Position
+            moved = false
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if not dragging or not activeInput then
+                return
+            end
+
+            if activeInput.UserInputType == Enum.UserInputType.Touch then
+                if input.UserInputType == Enum.UserInputType.Touch then
+                    updatePosition(input.Position)
+                end
+            elseif activeInput.UserInputType == Enum.UserInputType.MouseButton1 then
+                if input.UserInputType == Enum.UserInputType.MouseMovement then
+                    updatePosition(input.Position)
                 end
             end
         end)
 
         UserInputService.InputEnded:Connect(function(input)
-            if input == dragInput then
-                dragging = false
-                dragInput = nil
-                dragStart = nil
-                startPos = nil
+            if not activeInput or input ~= activeInput then
+                return
             end
-        end)
 
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging and input == dragInput then
-                update(input)
+            -- Tap tanpa drag = toggle UI.
+            if not moved and DropShadowHolder then
+                DropShadowHolder.Visible = not DropShadowHolder.Visible
             end
+
+            dragging = false
+            activeInput = nil
+            dragStart = nil
+            startPos = nil
+            moved = false
         end)
     end
 
