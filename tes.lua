@@ -2326,7 +2326,7 @@ function Chloex:Window(GuiConfig)
         ScreenGui.Parent = game:GetService("CoreGui")
         ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         ScreenGui.Name = "ToggleUIButton"
-
+    
         local MainButton = Instance.new("ImageLabel")
         MainButton.Parent = ScreenGui
         MainButton.Size = UDim2.new(0, GuiConfig.LogoButtonSize, 0, GuiConfig.LogoButtonSize)
@@ -2334,52 +2334,111 @@ function Chloex:Window(GuiConfig)
         MainButton.BackgroundTransparency = 1
         MainButton.Image = "rbxassetid://" .. GuiConfig.Image
         MainButton.ScaleType = Enum.ScaleType.Fit
-
+    
         local UICorner = Instance.new("UICorner")
         UICorner.CornerRadius = UDim.new(0, 6)
         UICorner.Parent = MainButton
-
+    
         local Button = Instance.new("TextButton")
         Button.Parent = MainButton
         Button.Size = UDim2.new(1, 0, 1, 0)
         Button.BackgroundTransparency = 1
         Button.Text = ""
-
-        Button.MouseButton1Click:Connect(function()
-            if DropShadowHolder then
-                DropShadowHolder.Visible = not DropShadowHolder.Visible
+        Button.AutoButtonColor = false
+    
+        ------------------------------------------------------------------
+        -- Drag system yang memenuhi requirement
+        ------------------------------------------------------------------
+        local UserInputService = game:GetService("UserInputService")
+    
+        local dragging = false          -- apakah gesture ini dimulai dari tombol
+        local moved = false             -- apakah sudah melewati threshold
+        local dragStart = nil           -- posisi awal gesture
+        local startPos = nil            -- posisi MainButton saat gesture dimulai
+        local activeInput = nil         -- InputObject yang memulai gesture (penting untuk touch)
+        local DRAG_THRESHOLD = 8        -- pixel. di bawah ini dianggap tap
+    
+        local function stopDrag()
+            dragging = false
+            activeInput = nil
+            -- moved di-reset di luar supaya MouseButton1Click / Ended masih bisa baca
+        end
+    
+        Button.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                and input.UserInputType ~= Enum.UserInputType.Touch then
+                return
             end
+    
+            -- HANYA gesture yang DIMULAI di atas tombol yang boleh drag
+            dragging = true
+            moved = false
+            activeInput = input
+            dragStart = input.Position
+            startPos = MainButton.Position
+    
+            -- Dengarkan End dari InputObject yang sama (khususnya penting untuk Touch)
+            local conn
+            conn = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    conn:Disconnect()
+    
+                    if activeInput == input then
+                        -- Kalau tidak ada movement berarti ini pure tap → toggle
+                        if not moved then
+                            if DropShadowHolder then
+                                DropShadowHolder.Visible = not DropShadowHolder.Visible
+                            end
+                        end
+                        stopDrag()
+                        moved = false
+                    end
+                end
+            end)
         end)
-
-        local dragging = false
-        local dragStart, startPos
-
-        local function update(input)
+    
+        UserInputService.InputChanged:Connect(function(input)
+            if not dragging then return end
+    
+            -- Mouse memakai MouseMovement (InputObject berbeda),
+            -- Touch memakai InputObject yang sama dengan yang di InputBegan.
+            local isMouseMove = input.UserInputType == Enum.UserInputType.MouseMovement
+            local isTouch     = input.UserInputType == Enum.UserInputType.Touch
+    
+            if not (isMouseMove or isTouch) then return end
+    
+            -- Untuk touch kita pastikan ini masih InputObject yang sama
+            if isTouch and input ~= activeInput then return end
+    
             local delta = input.Position - dragStart
+    
+            if not moved then
+                if math.abs(delta.X) >= DRAG_THRESHOLD or math.abs(delta.Y) >= DRAG_THRESHOLD then
+                    moved = true
+                else
+                    return -- masih di dalam threshold → jangan gerakkan tombol
+                end
+            end
+    
+            -- Sudah confirmed drag → ikuti jari/mouse (boleh keluar area tombol)
             MainButton.Position = UDim2.new(
                 startPos.X.Scale,
                 startPos.X.Offset + delta.X,
                 startPos.Y.Scale,
                 startPos.Y.Offset + delta.Y
             )
-        end
-
-        Button.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                dragStart = input.Position
-                startPos = MainButton.Position
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        dragging = false
-                    end
-                end)
-            end
         end)
-
-        game:GetService("UserInputService").InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-                update(input)
+    
+        -- Backup: kalau InputEnded global (kadang terjadi di beberapa executor)
+        UserInputService.InputEnded:Connect(function(input)
+            if input == activeInput then
+                if not moved then
+                    if DropShadowHolder then
+                        DropShadowHolder.Visible = not DropShadowHolder.Visible
+                    end
+                end
+                stopDrag()
+                moved = false
             end
         end)
     end
