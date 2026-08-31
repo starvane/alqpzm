@@ -2326,7 +2326,7 @@ function Chloex:Window(GuiConfig)
         ScreenGui.Parent = game:GetService("CoreGui")
         ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         ScreenGui.Name = "ToggleUIButton"
-    
+
         local MainButton = Instance.new("ImageLabel")
         MainButton.Parent = ScreenGui
         MainButton.Size = UDim2.new(0, GuiConfig.LogoButtonSize, 0, GuiConfig.LogoButtonSize)
@@ -2334,30 +2334,29 @@ function Chloex:Window(GuiConfig)
         MainButton.BackgroundTransparency = 1
         MainButton.Image = "rbxassetid://" .. GuiConfig.Image
         MainButton.ScaleType = Enum.ScaleType.Fit
-    
+
         local UICorner = Instance.new("UICorner")
         UICorner.CornerRadius = UDim.new(0, 6)
         UICorner.Parent = MainButton
-    
+
         local Button = Instance.new("TextButton")
         Button.Parent = MainButton
         Button.Size = UDim2.new(1, 0, 1, 0)
         Button.BackgroundTransparency = 1
         Button.Text = ""
-    
-        -- Toggle visibility
+
         Button.MouseButton1Click:Connect(function()
             if DropShadowHolder then
                 DropShadowHolder.Visible = not DropShadowHolder.Visible
             end
         end)
-    
-        -- ==================== DRAG YANG BENAR ====================
+
+        -- Drag hanya boleh dimulai jika press/touch dimulai tepat di dalam tombol
         local dragging = false
         local dragInput
         local dragStart
         local startPos
-    
+
         local function update(input)
             local delta = input.Position - dragStart
             MainButton.Position = UDim2.new(
@@ -2367,13 +2366,13 @@ function Chloex:Window(GuiConfig)
                 startPos.Y.Offset + delta.Y
             )
         end
-    
+
         Button.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 dragging = true
                 dragStart = input.Position
                 startPos = MainButton.Position
-    
+
                 input.Changed:Connect(function()
                     if input.UserInputState == Enum.UserInputState.End then
                         dragging = false
@@ -2381,20 +2380,20 @@ function Chloex:Window(GuiConfig)
                 end)
             end
         end)
-    
+
         Button.InputChanged:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
                 dragInput = input
             end
         end)
-    
+
         UserInputService.InputChanged:Connect(function(input)
             if input == dragInput and dragging then
                 update(input)
             end
         end)
-        -- ========================================================
     end
+
     GuiFunc:ToggleUI()
 
     MakeDraggable(Top, DropShadowHolder)
