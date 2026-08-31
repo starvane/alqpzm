@@ -2326,7 +2326,7 @@ function Chloex:Window(GuiConfig)
         ScreenGui.Parent = game:GetService("CoreGui")
         ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
         ScreenGui.Name = "ToggleUIButton"
-
+    
         local MainButton = Instance.new("ImageLabel")
         MainButton.Parent = ScreenGui
         MainButton.Size = UDim2.new(0, GuiConfig.LogoButtonSize, 0, GuiConfig.LogoButtonSize)
@@ -2334,41 +2334,32 @@ function Chloex:Window(GuiConfig)
         MainButton.BackgroundTransparency = 1
         MainButton.Image = "rbxassetid://" .. GuiConfig.Image
         MainButton.ScaleType = Enum.ScaleType.Fit
-
+    
         local UICorner = Instance.new("UICorner")
         UICorner.CornerRadius = UDim.new(0, 6)
         UICorner.Parent = MainButton
-
+    
         local Button = Instance.new("TextButton")
         Button.Parent = MainButton
         Button.Size = UDim2.new(1, 0, 1, 0)
         Button.BackgroundTransparency = 1
         Button.Text = ""
-
-        local UserInputService = game:GetService("UserInputService")
-        local dragging = false
-        local activeInput = nil
-        local dragStart = nil
-        local startPos = nil
-        local moved = false
-
-        local function IsInsideButton(position)
-            local buttonPos = Button.AbsolutePosition
-            local buttonSize = Button.AbsoluteSize
-            return position.X >= buttonPos.X
-                and position.X <= buttonPos.X + buttonSize.X
-                and position.Y >= buttonPos.Y
-                and position.Y <= buttonPos.Y + buttonSize.Y
-        end
-
-        local function update(input)
-            if not dragging or not activeInput then return end
-            local delta = input.Position - dragStart
-
-            if delta.Magnitude > 3 then
-                moved = true
+    
+        -- Toggle visibility
+        Button.MouseButton1Click:Connect(function()
+            if DropShadowHolder then
+                DropShadowHolder.Visible = not DropShadowHolder.Visible
             end
-
+        end)
+    
+        -- ==================== DRAG YANG BENAR ====================
+        local dragging = false
+        local dragInput
+        local dragStart
+        local startPos
+    
+        local function update(input)
+            local delta = input.Position - dragStart
             MainButton.Position = UDim2.new(
                 startPos.X.Scale,
                 startPos.X.Offset + delta.X,
@@ -2376,55 +2367,34 @@ function Chloex:Window(GuiConfig)
                 startPos.Y.Offset + delta.Y
             )
         end
-
-        -- Input hanya boleh memulai drag kalau TOUCH/MOUSE benar-benar DIMULAI
-        -- di dalam area tombol. Menyapu dari luar ke tombol tidak akan mengambil drag.
-        UserInputService.InputBegan:Connect(function(input, gameProcessed)
-            if gameProcessed then return end
-            if input.UserInputType ~= Enum.UserInputType.MouseButton1
-                and input.UserInputType ~= Enum.UserInputType.Touch then
-                return
+    
+        Button.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = MainButton.Position
+    
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                    end
+                end)
             end
-
-            if not IsInsideButton(input.Position) then
-                return
-            end
-
-            dragging = true
-            activeInput = input
-            dragStart = input.Position
-            startPos = MainButton.Position
-            moved = false
         end)
-
+    
+        Button.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
+        end)
+    
         UserInputService.InputChanged:Connect(function(input)
-            if not dragging or not activeInput then return end
-
-            if activeInput.UserInputType == Enum.UserInputType.Touch then
-                if input == activeInput then
-                    update(input)
-                end
-            elseif input.UserInputType == Enum.UserInputType.MouseMovement then
+            if input == dragInput and dragging then
                 update(input)
             end
         end)
-
-        UserInputService.InputEnded:Connect(function(input)
-            if input ~= activeInput then return end
-
-            -- Tap tanpa geser = toggle UI. Drag = hanya memindahkan tombol.
-            if not moved and DropShadowHolder then
-                DropShadowHolder.Visible = not DropShadowHolder.Visible
-            end
-
-            dragging = false
-            activeInput = nil
-            dragStart = nil
-            startPos = nil
-            moved = false
-        end)
+        -- ========================================================
     end
-
     GuiFunc:ToggleUI()
 
     MakeDraggable(Top, DropShadowHolder)
