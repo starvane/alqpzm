@@ -2346,26 +2346,44 @@ function Chloex:Window(GuiConfig)
         Button.Text = ""
 
         local UserInputService = game:GetService("UserInputService")
+        local CoreGuiService = game:GetService("CoreGui")
         local dragging = false
         local activeInput = nil
         local dragStart = nil
         local startPos = nil
         local moved = false
+        local CLICK_THRESHOLD = 6
 
-        local function IsInsideButton(position)
-            local buttonPos = Button.AbsolutePosition
-            local buttonSize = Button.AbsoluteSize
-            return position.X >= buttonPos.X
-                and position.X <= buttonPos.X + buttonSize.X
-                and position.Y >= buttonPos.Y
-                and position.Y <= buttonPos.Y + buttonSize.Y
+        -- Cek titik AWAL input, bukan posisi jari saat ini.
+        -- Ini mencegah touch yang dimulai di luar toggle lalu masuk ke toggle
+        -- dianggap sebagai drag.
+        local function StartedInsideToggle(position)
+            local ok, objects = pcall(function()
+                return CoreGuiService:GetGuiObjectsAtPosition(position.X, position.Y)
+            end)
+
+            if ok and objects then
+                for _, gui in ipairs(objects) do
+                    if gui == Button or gui == MainButton or gui:IsDescendantOf(Button) then
+                        return true
+                    end
+                end
+            end
+
+            -- Fallback hanya untuk koordinat yang memang masuk area Button.
+            local pos = Button.AbsolutePosition
+            local size = Button.AbsoluteSize
+            return position.X >= pos.X
+                and position.X <= pos.X + size.X
+                and position.Y >= pos.Y
+                and position.Y <= pos.Y + size.Y
         end
 
-        local function update(input)
-            if not dragging or not activeInput then return end
-            local delta = input.Position - dragStart
+        local function updatePosition(position)
+            if not dragging or not dragStart or not startPos then return end
 
-            if delta.Magnitude > 3 then
+            local delta = position - dragStart
+            if delta.Magnitude >= CLICK_THRESHOLD then
                 moved = true
             end
 
@@ -2377,8 +2395,8 @@ function Chloex:Window(GuiConfig)
             )
         end
 
-        -- Input hanya boleh memulai drag kalau TOUCH/MOUSE benar-benar DIMULAI
-        -- di dalam area tombol. Menyapu dari luar ke tombol tidak akan mengambil drag.
+        -- Pakai InputBegan global supaya input yang dimulai di luar GUI
+        -- tidak pernah diambil oleh toggle.
         UserInputService.InputBegan:Connect(function(input, gameProcessed)
             if gameProcessed then return end
             if input.UserInputType ~= Enum.UserInputType.MouseButton1
@@ -2386,7 +2404,8 @@ function Chloex:Window(GuiConfig)
                 return
             end
 
-            if not IsInsideButton(input.Position) then
+            -- INI SATU-SATUNYA tempat drag boleh dimulai.
+            if not StartedInsideToggle(input.Position) then
                 return
             end
 
@@ -2397,22 +2416,27 @@ function Chloex:Window(GuiConfig)
             moved = false
         end)
 
+        -- Mouse bergerak melalui MouseMovement; touch bergerak via TouchMoved.
         UserInputService.InputChanged:Connect(function(input)
             if not dragging or not activeInput then return end
 
-            if activeInput.UserInputType == Enum.UserInputType.Touch then
-                if input == activeInput then
-                    update(input)
+            if activeInput.UserInputType == Enum.UserInputType.MouseButton1 then
+                if input.UserInputType == Enum.UserInputType.MouseMovement then
+                    updatePosition(input.Position)
                 end
-            elseif input.UserInputType == Enum.UserInputType.MouseMovement then
-                update(input)
+            end
+        end)
+
+        UserInputService.TouchMoved:Connect(function(touch)
+            if dragging and activeInput == touch then
+                updatePosition(touch.Position)
             end
         end)
 
         UserInputService.InputEnded:Connect(function(input)
             if input ~= activeInput then return end
 
-            -- Tap tanpa geser = toggle UI. Drag = hanya memindahkan tombol.
+            -- Tidak geser = tap biasa, jadi tetap buka/tutup Window.
             if not moved and DropShadowHolder then
                 DropShadowHolder.Visible = not DropShadowHolder.Visible
             end
