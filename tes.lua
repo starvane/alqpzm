@@ -2351,15 +2351,21 @@ function Chloex:Window(GuiConfig)
         local dragStart = nil
         local startPos = nil
         local moved = false
-        local CLICK_THRESHOLD = 6
 
-        local function updatePosition(position)
-            if not dragging or not dragStart or not startPos then
-                return
-            end
+        local function IsInsideButton(position)
+            local buttonPos = Button.AbsolutePosition
+            local buttonSize = Button.AbsoluteSize
+            return position.X >= buttonPos.X
+                and position.X <= buttonPos.X + buttonSize.X
+                and position.Y >= buttonPos.Y
+                and position.Y <= buttonPos.Y + buttonSize.Y
+        end
 
-            local delta = position - dragStart
-            if delta.Magnitude >= CLICK_THRESHOLD then
+        local function update(input)
+            if not dragging or not activeInput then return end
+            local delta = input.Position - dragStart
+
+            if delta.Magnitude > 3 then
                 moved = true
             end
 
@@ -2371,11 +2377,16 @@ function Chloex:Window(GuiConfig)
             )
         end
 
-        -- Drag HARUS dimulai dari dalam Button.
-        -- Input yang dimulai di luar tidak akan pernah mengambil drag.
-        Button.InputBegan:Connect(function(input)
+        -- Input hanya boleh memulai drag kalau TOUCH/MOUSE benar-benar DIMULAI
+        -- di dalam area tombol. Menyapu dari luar ke tombol tidak akan mengambil drag.
+        UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
             if input.UserInputType ~= Enum.UserInputType.MouseButton1
                 and input.UserInputType ~= Enum.UserInputType.Touch then
+                return
+            end
+
+            if not IsInsideButton(input.Position) then
                 return
             end
 
@@ -2387,27 +2398,21 @@ function Chloex:Window(GuiConfig)
         end)
 
         UserInputService.InputChanged:Connect(function(input)
-            if not dragging or not activeInput then
-                return
-            end
+            if not dragging or not activeInput then return end
 
             if activeInput.UserInputType == Enum.UserInputType.Touch then
-                if input.UserInputType == Enum.UserInputType.Touch then
-                    updatePosition(input.Position)
+                if input == activeInput then
+                    update(input)
                 end
-            elseif activeInput.UserInputType == Enum.UserInputType.MouseButton1 then
-                if input.UserInputType == Enum.UserInputType.MouseMovement then
-                    updatePosition(input.Position)
-                end
+            elseif input.UserInputType == Enum.UserInputType.MouseMovement then
+                update(input)
             end
         end)
 
         UserInputService.InputEnded:Connect(function(input)
-            if not activeInput or input ~= activeInput then
-                return
-            end
+            if input ~= activeInput then return end
 
-            -- Tap tanpa drag = toggle UI.
+            -- Tap tanpa geser = toggle UI. Drag = hanya memindahkan tombol.
             if not moved and DropShadowHolder then
                 DropShadowHolder.Visible = not DropShadowHolder.Visible
             end
