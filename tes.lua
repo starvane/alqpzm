@@ -2351,13 +2351,21 @@ function Chloex:Window(GuiConfig)
             end
         end)
 
-        -- Drag hanya boleh dimulai jika press/touch dimulai tepat di dalam tombol
+        -- Drag ketat: hanya mulai kalau press dimulai BENAR-BENAR di dalam area tombol
         local dragging = false
-        local dragInput
-        local dragStart
-        local startPos
+        local dragInput = nil
+        local dragStart = nil
+        local startPos = nil
+
+        local function isInsideButton(pos)
+            local absPos = MainButton.AbsolutePosition
+            local absSize = MainButton.AbsoluteSize
+            return pos.X >= absPos.X and pos.X <= (absPos.X + absSize.X)
+               and pos.Y >= absPos.Y and pos.Y <= (absPos.Y + absSize.Y)
+        end
 
         local function update(input)
+            if not dragStart or not startPos then return end
             local delta = input.Position - dragStart
             MainButton.Position = UDim2.new(
                 startPos.X.Scale,
@@ -2369,26 +2377,27 @@ function Chloex:Window(GuiConfig)
 
         Button.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                dragStart = input.Position
-                startPos = MainButton.Position
-
-                input.Changed:Connect(function()
-                    if input.UserInputState == Enum.UserInputState.End then
-                        dragging = false
-                    end
-                end)
+                -- Cek ulang posisi biar gak ke-trigger kalau geser dari luar
+                if isInsideButton(input.Position) then
+                    dragging = true
+                    dragInput = input
+                    dragStart = input.Position
+                    startPos = MainButton.Position
+                end
             end
         end)
 
-        Button.InputChanged:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                dragInput = input
+        UserInputService.InputEnded:Connect(function(input)
+            if input == dragInput then
+                dragging = false
+                dragInput = nil
+                dragStart = nil
+                startPos = nil
             end
         end)
 
         UserInputService.InputChanged:Connect(function(input)
-            if input == dragInput and dragging then
+            if dragging and input == dragInput then
                 update(input)
             end
         end)
