@@ -66,7 +66,7 @@ StealMain:AddDropdown("Filter by Area (Multi-Select)", AREA_NAMES, true, functio
 StealMain:AddDropdown("Filter by Mutation (Multi-Select)", MUTATION_FILTERS, true, function(v) set("stealMutations", v) end)
 StealMain:AddSlider("Glide / Travel Speed", 50, 750, 200, function(v) set("glideSpeed", v) end)
 StealMain:AddSlider("Steal Delay Gap", 0.5, 10, 1.5, function(v) set("stealDelay", v) end)
-StealMain:AddButton("Steal Best Available Egg Once", function() note("UI Test", "Button clicked: Steal Best Available Egg Once", "Info") end)
+StealMain:AddButton("Steal Best Available Egg Once", function() note("UI Test", "Button clicked: Steal Best Available Egg Once") end)
 
 local HatchPage = EggsTab:CreatePage("Auto Hatch & Plant")
 local HatchMain = HatchPage:CreateSection("Hatching & Planting")
