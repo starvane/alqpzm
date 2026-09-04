@@ -24,13 +24,11 @@ local state = {}
 local function set(key, value) state[key] = value end
 local function get(key, default) local v = state[key]; if v == nil then return default end; return v end
 local function note(title, text, duration)
-    function()
-        Library:Notify({
-            Title = title,
-            Description = text,
-            Duration = duration or 2.5,
-        })
-    end
+    Library:Notify({
+        Title = title,
+        Description = text,
+        Duration = duration or 2.5,
+    })
 end
 
 local RARITY_NAMES = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythic", "Secret"}
@@ -56,7 +54,7 @@ local EggsTab = Window:CreateTab("Eggs", true, false)
 
 local StealPage = EggsTab:CreatePage("Auto Steal")
 local StealMain = StealPage:CreateSection("Egg Stealing")
-StealMain:AddToggle("Auto Steal Eggs", false, function(v) set("autoSteal", v); note("Auto Steal", v and "Enabled" or "Disabled", v and "Success" or "Error") end)
+StealMain:AddToggle("Auto Steal Eggs", false, function(v) set("autoSteal", v); note("Auto Steal", v and "Enabled" or "Disabled") end)
 StealMain:AddDropdown("Steal Movement Method", {"Tween Glide", "Fly Glide", "Safe Walk", "Instant Safe TP"}, false, function(v) set("stealMovement", v) end)
 StealMain:AddToggle("Steal Infested / Parasite Eggs Only", false, function(v) set("parasiteOnly", v) end)
 StealMain:AddToggle("Instant Prompt Pickup", false, function(v) set("instantPickup", v) end)
@@ -73,8 +71,8 @@ local HatchMain = HatchPage:CreateSection("Hatching & Planting")
 HatchMain:AddToggle("Auto Hatch Ready Eggs", false, function(v) set("autoHatch", v) end)
 HatchMain:AddToggle("Auto Place Egg (Base Pen)", false, function(v) set("autoPlant", v) end)
 HatchMain:AddSlider("Hatch Check Delay", 0.5, 10, 2.0, function(v) set("hatchDelay", v) end)
-HatchMain:AddButton("Hatch All Ready Eggs Now", function() note("UI Test", "Button clicked: Hatch All Ready Eggs Now", "Info") end)
-HatchMain:AddButton("Place Carried Eggs in Pen Now", function() note("UI Test", "Button clicked: Place Carried Eggs in Pen Now", "Info") end)
+HatchMain:AddButton("Hatch All Ready Eggs Now", function() note("UI Test", "Button clicked: Hatch All Ready Eggs Now") end)
+HatchMain:AddButton("Place Carried Eggs in Pen Now", function() note("UI Test", "Button clicked: Place Carried Eggs in Pen Now") end)
 
 local EspPage = EggsTab:CreatePage("Egg Tracker ESP")
 local EspMain = EspPage:CreateSection("Egg Tracker")
@@ -94,35 +92,35 @@ local UpgradesMain = UpgradesPage:CreateSection("Homestead & Training")
 UpgradesMain:AddToggle("Auto Upgrade Base / Plot", false, function(v) set("autoBase", v) end)
 UpgradesMain:AddToggle("Auto Upgrade Treadmill Tier", false, function(v) set("autoTreadmill", v) end)
 UpgradesMain:AddToggle("Auto Buy Speed Trails", false, function(v) set("autoTrails", v) end)
-UpgradesMain:AddButton("Upgrade Base Now", function() note("UI Test", "Button clicked: Upgrade Base Now", "Info") end)
-UpgradesMain:AddButton("Upgrade Treadmill Now", function() note("UI Test", "Button clicked: Upgrade Treadmill Now", "Info") end)
+UpgradesMain:AddButton("Upgrade Base Now", function() note("UI Test", "Button clicked: Upgrade Base Now") end)
+UpgradesMain:AddButton("Upgrade Treadmill Now", function() note("UI Test", "Button clicked: Upgrade Treadmill Now") end)
 
 local PetsPage = BaseTab:CreatePage("Pets & Satchel")
 local PetsMain = PetsPage:CreateSection("Pets")
 PetsMain:AddToggle("Auto Equip Best Pets", false, function(v) set("autoBestPets", v) end)
-PetsMain:AddButton("Equip Best Pets Now", function() note("UI Test", "Button clicked: Equip Best Pets Now", "Info") end)
+PetsMain:AddButton("Equip Best Pets Now", function() note("UI Test", "Button clicked: Equip Best Pets Now") end)
 
 local SalesPage = BaseTab:CreatePage("Auto Sell")
 local SalesMain = SalesPage:CreateSection("Pet Sales")
 SalesMain:AddToggle("Auto Sell Low-Tier Pets", false, function(v) set("sellPets", v) end)
 SalesMain:AddDropdown("Filter Pet Sell Rarities", RARITY_NAMES, true, function(v) set("sellPetRarities", v) end)
-SalesMain:AddButton("Sell Selected Pets Now", function() note("UI Test", "Button clicked: Sell Selected Pets Now", "Info") end)
+SalesMain:AddButton("Sell Selected Pets Now", function() note("UI Test", "Button clicked: Sell Selected Pets Now") end)
 local SalesEggs = SalesPage:CreateSection("Egg Sales")
 SalesEggs:AddToggle("Auto Sell Low-Tier Eggs", false, function(v) set("sellEggs", v) end)
 SalesEggs:AddDropdown("Filter Egg Sell Rarities", RARITY_NAMES, true, function(v) set("sellEggRarities", v) end)
-SalesEggs:AddButton("Sell Selected Eggs Now", function() note("UI Test", "Button clicked: Sell Selected Eggs Now", "Info") end)
+SalesEggs:AddButton("Sell Selected Eggs Now", function() note("UI Test", "Button clicked: Sell Selected Eggs Now") end)
 
 local EventsPage = BaseTab:CreatePage("Events & Bosses")
 local EventsMain = EventsPage:CreateSection("Monster Event")
 EventsMain:AddToggle("Auto Claim Monster Chests", false, function(v) set("autoChests", v) end)
 EventsMain:AddToggle("Auto Feed Monster Parasite", false, function(v) set("autoFeed", v) end)
-EventsMain:AddButton("Claim Monster Chest Now", function() note("UI Test", "Button clicked: Claim Monster Chest Now", "Info") end)
-EventsMain:AddButton("Feed Monster Parasite Now", function() note("UI Test", "Button clicked: Feed Monster Parasite Now", "Info") end)
+EventsMain:AddButton("Claim Monster Chest Now", function() note("UI Test", "Button clicked: Claim Monster Chest Now") end)
+EventsMain:AddButton("Feed Monster Parasite Now", function() note("UI Test", "Button clicked: Feed Monster Parasite Now") end)
 
 local RewardsPage = BaseTab:CreatePage("Claim Rewards")
 local RewardsMain = RewardsPage:CreateSection("Rewards")
 RewardsMain:AddToggle("Auto Claim Away Earnings & Codex", false, function(v) set("autoRewards", v) end)
-RewardsMain:AddButton("Claim Away Earnings & Codex Now", function() note("UI Test", "Button clicked: Claim Away Earnings & Codex Now", "Info") end)
+RewardsMain:AddButton("Claim Away Earnings & Codex Now", function() note("UI Test", "Button clicked: Claim Away Earnings & Codex Now") end)
 
 -- =============================================================================
 -- TAB 3: COMBAT
@@ -133,7 +131,7 @@ local BatMain = BatPage:CreateSection("Bat / Slap Aura")
 BatMain:AddToggle("Bat / Slap Aura", false, function(v) set("batAura", v) end)
 BatMain:AddSlider("Aura Radius", 5, 50, 20, function(v) set("auraRadius", v) end)
 BatMain:AddSlider("Swing Delay", 0.05, 1.0, 0.2, function(v) set("swingDelay", v) end)
-BatMain:AddButton("Swing Bat Once (Manual)", function() note("UI Test", "Button clicked: Swing Bat Once (Manual)", "Info") end)
+BatMain:AddButton("Swing Bat Once (Manual)", function() note("UI Test", "Button clicked: Swing Bat Once (Manual)") end)
 
 local GuardPage = CombatTab:CreatePage("Defense & Guards")
 local GuardMain = GuardPage:CreateSection("Defense")
@@ -159,23 +157,23 @@ MoveMain:AddToggle("Anti-AFK (Bypass 20min Kick)", false, function(v) set("antiA
 local AreaPage = PlayerTab:CreatePage("Area Travel")
 local AreaMain = AreaPage:CreateSection("Area Travel")
 AreaMain:AddDropdown("Select Area", areaKeys, false, function(v) set("selectedArea", v) end)
-AreaMain:AddButton("Travel to Selected Area", function() note("UI Test", "Button clicked: Travel to Selected Area", "Info") end)
+AreaMain:AddButton("Travel to Selected Area", function() note("UI Test", "Button clicked: Travel to Selected Area") end)
 
 local PlotPage = PlayerTab:CreatePage("Plot Travel")
 local PlotMain = PlotPage:CreateSection("Plot Travel")
 PlotMain:AddDropdown("Select Plot", plotOptions, false, function(v) set("selectedPlot", v) end)
-PlotMain:AddButton("Travel to Plot", function() note("UI Test", "Button clicked: Travel to Plot", "Info") end)
+PlotMain:AddButton("Travel to Plot", function() note("UI Test", "Button clicked: Travel to Plot") end)
 
 local PlayerTravelPage = PlayerTab:CreatePage("Player Travel")
 local PlayerTravelMain = PlayerTravelPage:CreateSection("Player Travel")
 PlayerTravelMain:AddDropdown("Select Player", playerList(), false, function(v) set("selectedPlayer", v) end)
 PlayerTravelMain:AddTextbox("Player Name", "Enter username...", function(v) set("playerName", v) end)
-PlayerTravelMain:AddButton("Travel to Player", function() note("UI Test", "Button clicked: Travel to Player", "Info") end)
+PlayerTravelMain:AddButton("Travel to Player", function() note("UI Test", "Button clicked: Travel to Player") end)
 
 local PerfPage = PlayerTab:CreatePage("Visuals & Performance")
 local PerfMain = PerfPage:CreateSection("Visuals & Performance")
 PerfMain:AddToggle("Fullbright (Daylight Visuals)", false, function(v) set("fullbright", v) end)
-PerfMain:AddButton("Delete Own Pet Renders (FPS Boost)", function() note("UI Test", "Button clicked: Delete Own Pet Renders (FPS Boost)", "Info") end)
+PerfMain:AddButton("Delete Own Pet Renders (FPS Boost)", function() note("UI Test", "Button clicked: Delete Own Pet Renders (FPS Boost)") end)
 
 -- =============================================================================
 -- TAB 5: SETTINGS
@@ -189,10 +187,11 @@ ConfigMain:AddButton("Toggle UI (Right Control)", function()
     if gui and gui:IsA("ScreenGui") then gui.Enabled = not gui.Enabled end
 end)
 ConfigMain:AddButton("Unload UI", function()
-    pcall(function() Window:Destroy() end)
+    local gui = Window.MainFrame and Window.MainFrame.Parent
+    if gui then gui:Destroy() end
 end)
 ConfigMain:AddButton("About Oxio Hub", function()
-    note("Oxio Hub", "UI-only test build • gameplay logic intentionally removed", "Info", 4)
+    note("Oxio Hub", "UI-only test build • gameplay logic intentionally removed", 4)
 end)
 
 UIS.InputBegan:Connect(function(input, processed)
