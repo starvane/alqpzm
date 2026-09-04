@@ -25,7 +25,7 @@ local function set(key, value) state[key] = value end
 local function get(key, default) local v = state[key]; if v == nil then return default end; return v end
 local function note(title, text, duration)
     pcall(function()
-        Window:Notify({
+        Library:Notify({
             Title = title,
             Description = text,
             Duration = duration or 2.5,
