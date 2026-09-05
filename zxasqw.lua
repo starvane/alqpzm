@@ -125,7 +125,11 @@ local function MakeDraggable(topbar, object)
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
-            Tween(object, {Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)}, 0.08)
+            -- Instant set: no tween lag on drag — feels responsive on mobile
+            object.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
         end
     end)
 end
@@ -348,16 +352,40 @@ function Library:CreateWindow(options)
         ZIndex = 20
     })
 
-    local ResizeGrip = Create("Frame", {
-        Parent = ResizeHandle,
-        BackgroundColor3 = Color3.fromRGB(100, 100, 105),
-        BackgroundTransparency = 0.35,
-        Size = UDim2.new(0, 3, 0, 14),
-        Position = UDim2.new(1, -5, 1, -5),
-        AnchorPoint = Vector2.new(1, 1),
-        Rotation = 45,
-        ZIndex = 21
-    })
+    -- Resize grip: 3 diagonal lines (standard OS resize indicator)
+    -- Hover highlight on ResizeHandle so user knows it's interactive
+    local _gripColor = Color3.fromRGB(90, 90, 95)
+    local function _makeGripLine(offsetX, offsetY, len)
+        local line = Create("Frame", {
+            Parent = ResizeHandle,
+            BackgroundColor3 = _gripColor,
+            BackgroundTransparency = 0.2,
+            Size = UDim2.new(0, 2, 0, len),
+            Position = UDim2.new(1, offsetX, 1, offsetY),
+            AnchorPoint = Vector2.new(1, 1),
+            Rotation = 45,
+            ZIndex = 21,
+            BorderSizePixel = 0
+        })
+        Create("UICorner", {Parent = line, CornerRadius = UDim.new(1, 0)})
+        return line
+    end
+    local _g1 = _makeGripLine(-2,  -2,  6)
+    local _g2 = _makeGripLine(-6,  -2, 10)
+    local _g3 = _makeGripLine(-10, -2, 14)
+    -- Hover: lines brighten so user sees the handle
+    ResizeHandle.MouseEnter:Connect(function()
+        for _, g in ipairs({_g1, _g2, _g3}) do
+            g.BackgroundColor3 = AccentColor
+            g.BackgroundTransparency = 0
+        end
+    end)
+    ResizeHandle.MouseLeave:Connect(function()
+        for _, g in ipairs({_g1, _g2, _g3}) do
+            g.BackgroundColor3 = _gripColor
+            g.BackgroundTransparency = 0.2
+        end
+    end)
 
     local function GetResizeLimits()
         local camera = workspace.CurrentCamera
@@ -376,7 +404,8 @@ function Library:CreateWindow(options)
             or input.UserInputType == Enum.UserInputType.Touch then
             resizing = true
             resizeStart = input.Position
-            resizeStartSize = MainFrame.Size
+            -- AbsoluteSize = always pixel Vector2, safe regardless of how Size is set
+            resizeStartSize = MainFrame.AbsoluteSize
         end
     end)
 
@@ -395,14 +424,15 @@ function Library:CreateWindow(options)
             local delta = input.Position - resizeStart
             local maxWidth, maxHeight = GetResizeLimits()
 
+            -- resizeStartSize is Vector2 now (AbsoluteSize), use .X/.Y directly
             local newWidth = math.clamp(
-                resizeStartSize.X.Offset + delta.X,
+                resizeStartSize.X + delta.X,
                 MIN_WIDTH,
                 maxWidth
             )
 
             local newHeight = math.clamp(
-                resizeStartSize.Y.Offset + delta.Y,
+                resizeStartSize.Y + delta.Y,
                 MIN_HEIGHT,
                 maxHeight
             )
@@ -431,19 +461,20 @@ function Library:CreateWindow(options)
         end)
     end
 
-    -- // CORE ENGINE ADDITION: Floating Bottom Bar Natively Attached to ScreenGui
-    
-    -- The Drag Hitbox (Invisible but large for easy grabbing)
+    -- // Floating Bottom Bar — parented to MainFrame (zero RenderStepped overhead)
+    -- Position is relative to MainFrame automatically. No per-frame sync needed.
+    -- Drag hitbox still drags MainFrame via MakeDraggable — behavior identical.
+
     local BottomDragHitbox = Create("Frame", {
-        Parent = ScreenGui,
+        Parent = MainFrame,           -- relative to MainFrame: follows it for free
         BackgroundTransparency = 1,
-        Size = UDim2.new(0, 350, 0, 30),
+        Size = UDim2.new(0.6, 0, 0, 30),  -- 60% of window width, responsive
+        Position = UDim2.new(0.5, 0, 1, 20),  -- just below bottom edge, centered
         AnchorPoint = Vector2.new(0.5, 0.5),
         ZIndex = 145,
         Active = true
     })
 
-    -- The Visible Modern Bar (Sleeker, pill-shaped, dark gray outline)
     local FloatingBottomBar = Create("Frame", {
         Parent = BottomDragHitbox,
         BackgroundColor3 = CardColor,
@@ -454,35 +485,14 @@ function Library:CreateWindow(options)
     })
     Create("UICorner", {Parent = FloatingBottomBar, CornerRadius = UDim.new(1, 0)})
     local BottomBarStroke = Create("UIStroke", {
-        Parent = FloatingBottomBar, 
-        Color = Color3.fromRGB(50, 50, 55), 
-        Thickness = 1.2, 
+        Parent = FloatingBottomBar,
+        Color = Color3.fromRGB(50, 50, 55),
+        Thickness = 1.2,
         Transparency = 0
     })
 
-    -- Drags MainFrame when the larger invisible hitbox is pulled. Sync is perfect.
+    -- Drag bar: still controls MainFrame. Parent change doesn't affect drag logic.
     MakeDraggable(BottomDragHitbox, MainFrame)
-
-    RunService.RenderStepped:Connect(function()
-        if MainFrame and MainFrame.Visible then
-            BottomDragHitbox.Visible = true
-            local currentScale = MainScale.Scale
-            local frameHeight = MainFrame.AbsoluteSize.Y
-            local frameWidth = MainFrame.AbsoluteSize.X
-            
-            BottomDragHitbox.Position = UDim2.new(
-                MainFrame.Position.X.Scale,
-                MainFrame.Position.X.Offset,
-                MainFrame.Position.Y.Scale,
-                MainFrame.Position.Y.Offset + (frameHeight / 2) + 20
-            )
-            BottomDragHitbox.Size = UDim2.new(0, frameWidth * 0.6, 0, 30 * currentScale)
-            FloatingBottomBar.Size = UDim2.new(1, 0, 0, 6 * currentScale)
-            FloatingBottomBar.Position = UDim2.new(0, 0, 0.5, -(3 * currentScale))
-        else
-            BottomDragHitbox.Visible = false
-        end
-    end)
 
     local TopBar = Create("Frame", {Parent = MainFrame, BackgroundColor3 = BackgroundColor, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 0, 0), Active = true})
     MakeDraggable(TopBar, MainFrame)
@@ -504,7 +514,9 @@ function Library:CreateWindow(options)
     local Title = Create("TextLabel", {Parent = TitleContainer, Text = hubName, Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = TextColor, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 5), Size = UDim2.new(1, 0, 0, 16), TextXAlignment = Enum.TextXAlignment.Left})
     local Subtitle = Create("TextLabel", {Parent = TitleContainer, Text = subText, Font = Enum.Font.Gotham, TextSize = 10, TextColor3 = subColor, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 22), Size = UDim2.new(1, 0, 0, 12), TextXAlignment = Enum.TextXAlignment.Left})
 
-    local SearchBar = Create("Frame", {Parent = TopBar, BackgroundColor3 = CardColor, Size = UDim2.new(0, 250, 0, 26), Position = UDim2.new(0, 180, 0.5, -13)})
+    -- Responsive SearchBar: fills space between title and close buttons
+    -- At any window width, it never overlaps CloseBtn or MinBtn
+    local SearchBar = Create("Frame", {Parent = TopBar, BackgroundColor3 = CardColor, Size = UDim2.new(1, -255, 0, 26), Position = UDim2.new(0, 180, 0.5, -13)})
     Create("UICorner", {Parent = SearchBar, CornerRadius = UDim.new(0, 6)})
     local SearchIcon = Create("ImageLabel", {Parent = SearchBar, BackgroundTransparency = 1, Image = "rbxassetid://6031154871", ImageColor3 = SubTextColor, Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(0, 8, 0.5, -7)})
     local SearchInput = Create("TextBox", {Parent = SearchBar, BackgroundTransparency = 1, Size = UDim2.new(1, -30, 1, 0), Position = UDim2.new(0, 30, 0, 0), Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = TextColor, PlaceholderText = "Search..", TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false})
@@ -551,7 +563,7 @@ function Library:CreateWindow(options)
         Tween(BottomBarStroke, {Transparency = 1}, 0.4)
         task.wait(0.3)
         MainFrame.Visible = false
-        BottomDragHitbox.Visible = false
+        -- BottomDragHitbox hides automatically (child of MainFrame now)
         Sphere.Visible = true
         Tween(Sphere, {Size = UDim2.new(0, 50, 0, 50)}, 0.4)
         
@@ -813,13 +825,20 @@ function Library:CreateWindow(options)
                 local SectionContainer = Create("Frame", {Parent = targetColumn, BackgroundColor3 = CardColor, Size = UDim2.new(1, 0, 0, 30), AutomaticSize = Enum.AutomaticSize.Y, ClipsDescendants = true})
                 Create("UICorner", {Parent = SectionContainer, CornerRadius = UDim.new(0, 6)})
                 
-                table.insert(Window.AllCards, {
+                local cardEntry = {
                     Card = SectionContainer,
                     OrigParent = targetColumn,
                     Tab = TabConfig,
                     Page = PageObj,
-                    SearchIndex = nil 
-                })
+                    SearchIndex = nil
+                }
+                table.insert(Window.AllCards, cardEntry)
+                -- Build SearchIndex after this frame so all children exist
+                task.defer(function()
+                    if SectionContainer and SectionContainer.Parent then
+                        cardEntry.SearchIndex = BuildSearchIndex(SectionContainer)
+                    end
+                end)
                 
                 local Title = Create("TextLabel", {Parent = SectionContainer, Text = sectionName, Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = TextColor, BackgroundTransparency = 1, Size = UDim2.new(1, -20, 0, 30), Position = UDim2.new(0, 10, 0, 0), TextXAlignment = Enum.TextXAlignment.Left})
                 local ItemContainer = Create("Frame", {Parent = SectionContainer, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), Position = UDim2.new(0, 0, 0, 30), AutomaticSize = Enum.AutomaticSize.Y})
