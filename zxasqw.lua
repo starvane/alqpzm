@@ -322,26 +322,114 @@ function Library:CreateWindow(options)
         Btn.MouseButton1Click:Connect(function() OpenInfoWindow(data) end)
     end
 
-    local viewport = workspace.CurrentCamera.ViewportSize
+    local CurrentCamera = workspace.CurrentCamera
+    local viewport = CurrentCamera and CurrentCamera.ViewportSize or Vector2.new(650, 420)
 
-    local windowWidth = math.min(650, viewport.X - 30)
-    local windowHeight = math.min(420, viewport.Y - 60)
+    -- // Responsive initial window size
+    -- Desktop stays at 650x420; smaller screens get a fitting size.
+    local MIN_WIDTH = 430
+    local MIN_HEIGHT = 300
 
-    local MainFrame = Create("Frame", {
-        Parent = ScreenGui,
-        BackgroundColor3 = BackgroundColor,
-        Size = UDim2.fromOffset(windowWidth, windowHeight),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        ClipsDescendants = true,
-        BackgroundTransparency = 1,
-        Active = true
-    })
+    local windowWidth = math.max(MIN_WIDTH, math.min(650, viewport.X - 40))
+    local windowHeight = math.max(MIN_HEIGHT, math.min(420, viewport.Y - 60))
+
+    local MainFrame = Create("Frame", {Parent = ScreenGui, BackgroundColor3 = BackgroundColor, Size = UDim2.fromOffset(windowWidth, windowHeight), Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), ClipsDescendants = true, BackgroundTransparency = 1, Active = true})
     local MainScale = Create("UIScale", {Parent = MainFrame, Scale = 0.8})
+
+    -- // Resize Handle - Bottom Right Corner
+    local ResizeHandle = Create("TextButton", {
+        Parent = MainFrame,
+        Text = "",
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0, 24, 0, 24),
+        Position = UDim2.new(1, -24, 1, -24),
+        AutoButtonColor = false,
+        Active = true,
+        ZIndex = 20
+    })
+
+    local ResizeGrip = Create("Frame", {
+        Parent = ResizeHandle,
+        BackgroundColor3 = Color3.fromRGB(100, 100, 105),
+        BackgroundTransparency = 0.35,
+        Size = UDim2.new(0, 3, 0, 14),
+        Position = UDim2.new(1, -5, 1, -5),
+        AnchorPoint = Vector2.new(1, 1),
+        Rotation = 45,
+        ZIndex = 21
+    })
+
+    local function GetResizeLimits()
+        local camera = workspace.CurrentCamera
+        local size = camera and camera.ViewportSize or Vector2.new(650, 420)
+        local maxWidth = math.max(MIN_WIDTH, size.X - 20)
+        local maxHeight = math.max(MIN_HEIGHT, size.Y - 40)
+        return maxWidth, maxHeight
+    end
+
+    local resizing = false
+    local resizeStart
+    local resizeStartSize
+
+    ResizeHandle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            resizing = true
+            resizeStart = input.Position
+            resizeStartSize = MainFrame.Size
+        end
+    end)
+
+    ResizeHandle.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            resizing = false
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if not resizing then return end
+
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
+            local delta = input.Position - resizeStart
+            local maxWidth, maxHeight = GetResizeLimits()
+
+            local newWidth = math.clamp(
+                resizeStartSize.X.Offset + delta.X,
+                MIN_WIDTH,
+                maxWidth
+            )
+
+            local newHeight = math.clamp(
+                resizeStartSize.Y.Offset + delta.Y,
+                MIN_HEIGHT,
+                maxHeight
+            )
+
+            MainFrame.Size = UDim2.fromOffset(newWidth, newHeight)
+        end
+    end)
+
     Create("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 8)})
     Create("UIStroke", {Parent = MainFrame, Color = Color3.fromRGB(40, 40, 45), Thickness = 1})
     Tween(MainScale, {Scale = 1}, 0.5)
     Tween(MainFrame, {BackgroundTransparency = 0}, 0.5)
+
+    -- Keep the resized window inside sensible limits after mobile rotation / viewport changes.
+    CurrentCamera = workspace.CurrentCamera
+    if CurrentCamera then
+        CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            local maxWidth, maxHeight = GetResizeLimits()
+            local currentWidth = MainFrame.Size.X.Offset
+            local currentHeight = MainFrame.Size.Y.Offset
+
+            MainFrame.Size = UDim2.fromOffset(
+                math.clamp(currentWidth, MIN_WIDTH, maxWidth),
+                math.clamp(currentHeight, MIN_HEIGHT, maxHeight)
+            )
+        end)
+    end
 
     -- // CORE ENGINE ADDITION: Floating Bottom Bar Natively Attached to ScreenGui
     
@@ -378,25 +466,17 @@ function Library:CreateWindow(options)
     RunService.RenderStepped:Connect(function()
         if MainFrame and MainFrame.Visible then
             BottomDragHitbox.Visible = true
-
             local currentScale = MainScale.Scale
             local frameHeight = MainFrame.AbsoluteSize.Y
             local frameWidth = MainFrame.AbsoluteSize.X
-
+            
             BottomDragHitbox.Position = UDim2.new(
                 MainFrame.Position.X.Scale,
                 MainFrame.Position.X.Offset,
                 MainFrame.Position.Y.Scale,
                 MainFrame.Position.Y.Offset + (frameHeight / 2) + 20
             )
-
-            BottomDragHitbox.Size = UDim2.new(
-                0,
-                frameWidth * 0.6,
-                0,
-                30 * currentScale
-            )
-
+            BottomDragHitbox.Size = UDim2.new(0, frameWidth * 0.6, 0, 30 * currentScale)
             FloatingBottomBar.Size = UDim2.new(1, 0, 0, 6 * currentScale)
             FloatingBottomBar.Position = UDim2.new(0, 0, 0.5, -(3 * currentScale))
         else
