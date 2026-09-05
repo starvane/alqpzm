@@ -125,11 +125,105 @@ local function MakeDraggable(topbar, object)
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
-            -- Instant set: no tween lag on drag — feels responsive on mobile
-            object.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
+            Tween(object, {Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)}, 0.08)
+        end
+    end)
+end
+
+-- // Utility: Obsidian-style Resizable Window
+local function MakeResizable(UI, DragFrame, Callback)
+    local dragging = false
+    local dragStart
+    local startSize
+    local endedConnection
+
+    DragFrame.Active = true
+
+    DragFrame.InputBegan:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1
+            and input.UserInputType ~= Enum.UserInputType.Touch then
+            return
+        end
+
+        dragStart = input.Position
+        startSize = UI.Size
+        dragging = true
+
+        if endedConnection then
+            endedConnection:Disconnect()
+            endedConnection = nil
+        end
+
+        endedConnection = input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+
+                if endedConnection then
+                    endedConnection:Disconnect()
+                    endedConnection = nil
+                end
+            end
+        end)
+    end)
+
+    local inputChangedConnection
+    inputChangedConnection = UserInputService.InputChanged:Connect(function(input)
+        if not dragging then
+            return
+        end
+
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement
+            and input.UserInputType ~= Enum.UserInputType.Touch then
+            return
+        end
+
+        if not UI.Visible or not UI.Parent then
+            dragging = false
+            return
+        end
+
+        local uiScale = UI:FindFirstChildOfClass("UIScale")
+        local scale = uiScale and math.max(uiScale.Scale, 0.01) or 1
+        local delta = input.Position - dragStart
+
+        local camera = workspace.CurrentCamera
+        local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
+
+        local minWidth = 430
+        local minHeight = 300
+        local maxWidth = math.max(minWidth, (viewport.X - 30) / scale)
+        local maxHeight = math.max(minHeight, (viewport.Y - 40) / scale)
+
+        local newWidth = math.clamp(
+            startSize.X.Offset + (delta.X / scale),
+            minWidth,
+            maxWidth
+        )
+
+        local newHeight = math.clamp(
+            startSize.Y.Offset + (delta.Y / scale),
+            minHeight,
+            maxHeight
+        )
+
+        UI.Size = UDim2.fromOffset(newWidth, newHeight)
+
+        if Callback then
+            Callback(newWidth, newHeight)
+        end
+    end)
+
+    UI.Destroying:Connect(function()
+        dragging = false
+
+        if inputChangedConnection then
+            inputChangedConnection:Disconnect()
+            inputChangedConnection = nil
+        end
+
+        if endedConnection then
+            endedConnection:Disconnect()
+            endedConnection = nil
         end
     end)
 end
@@ -177,7 +271,7 @@ function Library:CreateWindow(options)
     local subText = "Made By Hypol-X"
     local subColor = AccentColor
     local sphTextToggle = false
-    local sphWords = "ZX"
+    local sphWords = "OX"
     local sphImage = nil
     local topbarLogo = nil
     local logoSize = 32
@@ -326,121 +420,24 @@ function Library:CreateWindow(options)
         Btn.MouseButton1Click:Connect(function() OpenInfoWindow(data) end)
     end
 
-    local CurrentCamera = workspace.CurrentCamera
-    local viewport = CurrentCamera and CurrentCamera.ViewportSize or Vector2.new(650, 420)
-
-    -- // Responsive initial window size
-    -- Desktop stays at 650x420; smaller screens get a fitting size.
-    local MIN_WIDTH = 430
-    local MIN_HEIGHT = 300
-
-    local windowWidth = math.max(MIN_WIDTH, math.min(650, viewport.X - 40))
-    local windowHeight = math.max(MIN_HEIGHT, math.min(420, viewport.Y - 60))
+    local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280, 720)
+    local windowWidth = math.min(650, math.max(430, viewport.X - 30))
+    local windowHeight = math.min(420, math.max(300, viewport.Y - 60))
 
     local MainFrame = Create("Frame", {Parent = ScreenGui, BackgroundColor3 = BackgroundColor, Size = UDim2.fromOffset(windowWidth, windowHeight), Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), ClipsDescendants = true, BackgroundTransparency = 1, Active = true})
     local MainScale = Create("UIScale", {Parent = MainFrame, Scale = 0.8})
-
-    -- // Resize — Obsidian pattern
-    -- ResizeHandle duduk di BottomBar (dibuat setelah BottomBar di bawah)
-    -- Deklarasi forward agar bisa dipakai di MakeWindowResizable
-    local ResizeHandle
-
-    local function GetResizeLimits()
-        local camera = workspace.CurrentCamera
-        local size = camera and camera.ViewportSize or Vector2.new(650, 420)
-        local maxW = math.max(MIN_WIDTH,  size.X - 20)
-        local maxH = math.max(MIN_HEIGHT, size.Y - 40)
-        return maxW, maxH
-    end
-
-    -- Obsidian-style MakeResizable:
-    -- • InputBegan pada handle → catat StartPos + FrameSize
-    -- • Input.Changed (per-input) → detect drag end reliably, disconnect self
-    -- • UserInputService.InputChanged → move only when Dragging + UI visible
-    -- • Safety: stop drag if ScreenGui destroyed or MainFrame invisible
-    local function MakeWindowResizable(handle)
-        local startPos
-        local frameSize
-        local dragging   = false
-        local changedConn
-
-        handle.InputBegan:Connect(function(input)
-            if input.UserInputType ~= Enum.UserInputType.MouseButton1
-                and input.UserInputType ~= Enum.UserInputType.Touch then
-                return
-            end
-            startPos  = input.Position
-            frameSize = MainFrame.Size   -- UDim2, .X.Offset always valid (fromOffset window)
-            dragging  = true
-
-            -- Obsidian pattern: listen on the input object itself for release
-            -- More reliable than InputEnded which can miss if cursor leaves window
-            changedConn = input.Changed:Connect(function()
-                if input.UserInputState ~= Enum.UserInputState.End then return end
-                dragging = false
-                if changedConn and changedConn.Connected then
-                    changedConn:Disconnect()
-                    changedConn = nil
-                end
-            end)
-        end)
-
-        UserInputService.InputChanged:Connect(function(input)
-            -- Safety guard (Obsidian): stop if UI gone or not visible
-            if not MainFrame.Visible or not ScreenGui.Parent then
-                dragging = false
-                if changedConn and changedConn.Connected then
-                    changedConn:Disconnect()
-                    changedConn = nil
-                end
-                return
-            end
-
-            if not dragging then return end
-            if input.UserInputType ~= Enum.UserInputType.MouseMovement
-                and input.UserInputType ~= Enum.UserInputType.Touch then
-                return
-            end
-
-            local delta  = input.Position - startPos
-            local maxW, maxH = GetResizeLimits()
-
-            MainFrame.Size = UDim2.fromOffset(
-                math.clamp(frameSize.X.Offset + delta.X, MIN_WIDTH,  maxW),
-                math.clamp(frameSize.Y.Offset + delta.Y, MIN_HEIGHT, maxH)
-            )
-        end)
-    end
-
     Create("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 8)})
     Create("UIStroke", {Parent = MainFrame, Color = Color3.fromRGB(40, 40, 45), Thickness = 1})
     Tween(MainScale, {Scale = 1}, 0.5)
     Tween(MainFrame, {BackgroundTransparency = 0}, 0.5)
 
-    -- Keep the resized window inside sensible limits after mobile rotation / viewport changes.
-    CurrentCamera = workspace.CurrentCamera
-    if CurrentCamera then
-        CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-            local maxWidth, maxHeight = GetResizeLimits()
-            local currentWidth = MainFrame.Size.X.Offset
-            local currentHeight = MainFrame.Size.Y.Offset
-
-            MainFrame.Size = UDim2.fromOffset(
-                math.clamp(currentWidth, MIN_WIDTH, maxWidth),
-                math.clamp(currentHeight, MIN_HEIGHT, maxHeight)
-            )
-        end)
-    end
-
-    -- // Floating Bottom Bar — parented to MainFrame (zero RenderStepped overhead)
-    -- Position is relative to MainFrame automatically. No per-frame sync needed.
-    -- Drag hitbox still drags MainFrame via MakeDraggable — behavior identical.
-
+    -- // OXIO BOTTOM CONTROL BAR
+    -- A wider invisible drag target with a thin floating visual bar.
+    -- The resize handle itself lives on the actual window corner, just like polished UI libraries.
     local BottomDragHitbox = Create("Frame", {
-        Parent = MainFrame,           -- relative to MainFrame: follows it for free
+        Parent = ScreenGui,
         BackgroundTransparency = 1,
-        Size = UDim2.new(0.6, 0, 0, 30),  -- 60% of window width, responsive
-        Position = UDim2.new(0.5, 0, 1, 20),  -- just below bottom edge, centered
+        Size = UDim2.fromOffset(360, 28),
         AnchorPoint = Vector2.new(0.5, 0.5),
         ZIndex = 145,
         Active = true
@@ -454,7 +451,12 @@ function Library:CreateWindow(options)
         Position = UDim2.new(0, 0, 0.5, -3),
         ZIndex = 146
     })
-    Create("UICorner", {Parent = FloatingBottomBar, CornerRadius = UDim.new(1, 0)})
+
+    Create("UICorner", {
+        Parent = FloatingBottomBar,
+        CornerRadius = UDim.new(1, 0)
+    })
+
     local BottomBarStroke = Create("UIStroke", {
         Parent = FloatingBottomBar,
         Color = Color3.fromRGB(50, 50, 55),
@@ -462,60 +464,106 @@ function Library:CreateWindow(options)
         Transparency = 0
     })
 
-    -- Drag bar: still controls MainFrame. Parent change doesn't affect drag logic.
     MakeDraggable(BottomDragHitbox, MainFrame)
 
-    -- // ResizeHandle — Obsidian style: lives inside BottomBar, square via RelativeYY
-    -- SizeConstraint=RelativeYY: Size=(1,1) scale means height=width=BottomBar.Height
-    -- AnchorPoint=(1,0) flush to right edge of BottomBar
-    ResizeHandle = Create("TextButton", {
-        Parent = BottomDragHitbox,
-        Text = "",
+    -- // Obsidian-style corner resize handle
+    local ResizeHandle = Create("TextButton", {
+        Parent = MainFrame,
         BackgroundTransparency = 1,
-        AnchorPoint = Vector2.new(1, 0),
-        Position = UDim2.new(1, 0, 0, 0),
-        Size = UDim2.fromScale(1, 1),
-        SizeConstraint = Enum.SizeConstraint.RelativeYY,  -- auto square like Obsidian
+        Text = "",
         AutoButtonColor = false,
-        Active = true,
-        ZIndex = 147
+        AnchorPoint = Vector2.new(1, 1),
+        Position = UDim2.new(1, -3, 1, -3),
+        Size = UDim2.fromOffset(28, 28),
+        ZIndex = 150,
+        Active = true
     })
 
-    -- Grip icon: 3 diagonal lines, brighten on hover
-    local _gripColor = Color3.fromRGB(90, 90, 95)
-    local function _makeGripLine(ox, oy, len)
-        local ln = Create("Frame", {
-            Parent = ResizeHandle,
-            BackgroundColor3 = _gripColor,
-            BackgroundTransparency = 0.2,
-            Size = UDim2.new(0, 2, 0, len),
-            Position = UDim2.new(1, ox, 1, oy),
-            AnchorPoint = Vector2.new(1, 1),
-            Rotation = 45,
-            ZIndex = 148,
-            BorderSizePixel = 0
-        })
-        Create("UICorner", {Parent = ln, CornerRadius = UDim.new(1, 0)})
-        return ln
+    local ResizeScale = Create("UIScale", {
+        Parent = ResizeHandle,
+        Scale = 1
+    })
+
+    local ResizeLine1 = Create("Frame", {
+        Parent = ResizeHandle,
+        BackgroundColor3 = SubTextColor,
+        BorderSizePixel = 0,
+        Size = UDim2.fromOffset(2, 7),
+        Position = UDim2.fromOffset(17, 17),
+        Rotation = 45,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        ZIndex = 151
+    })
+
+    local ResizeLine2 = Create("Frame", {
+        Parent = ResizeHandle,
+        BackgroundColor3 = SubTextColor,
+        BorderSizePixel = 0,
+        Size = UDim2.fromOffset(2, 11),
+        Position = UDim2.fromOffset(20, 14),
+        Rotation = 45,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        ZIndex = 151
+    })
+
+    local ResizeLine3 = Create("Frame", {
+        Parent = ResizeHandle,
+        BackgroundColor3 = SubTextColor,
+        BorderSizePixel = 0,
+        Size = UDim2.fromOffset(2, 5),
+        Position = UDim2.fromOffset(23, 11),
+        Rotation = 45,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        ZIndex = 151
+    })
+
+    local function SetResizeVisual(active)
+        local targetColor = active and TextColor or SubTextColor
+        local targetScale = active and 1.08 or 1
+
+        Tween(ResizeLine1, {BackgroundColor3 = targetColor}, 0.12)
+        Tween(ResizeLine2, {BackgroundColor3 = targetColor}, 0.12)
+        Tween(ResizeLine3, {BackgroundColor3 = targetColor}, 0.12)
+        Tween(ResizeScale, {Scale = targetScale}, 0.12)
     end
-    local _g1 = _makeGripLine(-1, -1,  5)
-    local _g2 = _makeGripLine(-5, -1,  9)
-    local _g3 = _makeGripLine(-9, -1, 13)
+
     ResizeHandle.MouseEnter:Connect(function()
-        for _, g in ipairs({_g1, _g2, _g3}) do
-            g.BackgroundColor3 = AccentColor
-            g.BackgroundTransparency = 0
-        end
-    end)
-    ResizeHandle.MouseLeave:Connect(function()
-        for _, g in ipairs({_g1, _g2, _g3}) do
-            g.BackgroundColor3 = _gripColor
-            g.BackgroundTransparency = 0.2
-        end
+        SetResizeVisual(true)
     end)
 
-    -- Wire up Obsidian-style resize logic
-    MakeWindowResizable(ResizeHandle)
+    ResizeHandle.MouseLeave:Connect(function()
+        SetResizeVisual(false)
+    end)
+
+    -- // Keep the external floating drag bar perfectly aligned without RenderStepped.
+    local function UpdateBottomBar()
+        if not MainFrame.Visible then
+            BottomDragHitbox.Visible = false
+            return
+        end
+
+        BottomDragHitbox.Visible = true
+
+        local FrameSize = MainFrame.AbsoluteSize
+        local FramePos = MainFrame.AbsolutePosition
+        local BarWidth = math.clamp(FrameSize.X * 0.55, 220, 420)
+
+        BottomDragHitbox.Size = UDim2.fromOffset(BarWidth, 28)
+        BottomDragHitbox.Position = UDim2.fromOffset(
+            FramePos.X + (FrameSize.X / 2),
+            FramePos.Y + FrameSize.Y + 18
+        )
+
+        local Scale = MainScale.Scale
+        FloatingBottomBar.Size = UDim2.new(1, 0, 0, 6 * Scale)
+        FloatingBottomBar.Position = UDim2.new(0, 0, 0.5, -(3 * Scale))
+    end
+
+    MainFrame:GetPropertyChangedSignal("Size"):Connect(UpdateBottomBar)
+    MainFrame:GetPropertyChangedSignal("Position"):Connect(UpdateBottomBar)
+    MainFrame:GetPropertyChangedSignal("Visible"):Connect(UpdateBottomBar)
+    MainScale:GetPropertyChangedSignal("Scale"):Connect(UpdateBottomBar)
+    UpdateBottomBar()
 
     local TopBar = Create("Frame", {Parent = MainFrame, BackgroundColor3 = BackgroundColor, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 0, 0), Active = true})
     MakeDraggable(TopBar, MainFrame)
@@ -537,9 +585,7 @@ function Library:CreateWindow(options)
     local Title = Create("TextLabel", {Parent = TitleContainer, Text = hubName, Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = TextColor, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 5), Size = UDim2.new(1, 0, 0, 16), TextXAlignment = Enum.TextXAlignment.Left})
     local Subtitle = Create("TextLabel", {Parent = TitleContainer, Text = subText, Font = Enum.Font.Gotham, TextSize = 10, TextColor3 = subColor, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 22), Size = UDim2.new(1, 0, 0, 12), TextXAlignment = Enum.TextXAlignment.Left})
 
-    -- Responsive SearchBar: fills space between title and close buttons
-    -- At any window width, it never overlaps CloseBtn or MinBtn
-    local SearchBar = Create("Frame", {Parent = TopBar, BackgroundColor3 = CardColor, Size = UDim2.new(1, -255, 0, 26), Position = UDim2.new(0, 180, 0.5, -13)})
+    local SearchBar = Create("Frame", {Parent = TopBar, BackgroundColor3 = CardColor, Size = UDim2.fromOffset(math.max(150, windowWidth - (titleOffsetX + 175) - 105), 26), Position = UDim2.new(0, titleOffsetX + 175, 0.5, -13)})
     Create("UICorner", {Parent = SearchBar, CornerRadius = UDim.new(0, 6)})
     local SearchIcon = Create("ImageLabel", {Parent = SearchBar, BackgroundTransparency = 1, Image = "rbxassetid://6031154871", ImageColor3 = SubTextColor, Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(0, 8, 0.5, -7)})
     local SearchInput = Create("TextBox", {Parent = SearchBar, BackgroundTransparency = 1, Size = UDim2.new(1, -30, 1, 0), Position = UDim2.new(0, 30, 0, 0), Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = TextColor, PlaceholderText = "Search..", TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false})
@@ -547,7 +593,9 @@ function Library:CreateWindow(options)
     local CloseBtn = Create("TextButton", {Parent = TopBar, Text = "X", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = SubTextColor, BackgroundTransparency = 1, Size = UDim2.new(0, 30, 1, 0), Position = UDim2.new(1, -35, 0, 0)})
     local MinBtn = Create("TextButton", {Parent = TopBar, Text = "—", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = SubTextColor, BackgroundTransparency = 1, Size = UDim2.new(0, 30, 1, 0), Position = UDim2.new(1, -65, 0, 0)})
 
-    local Sidebar = Create("Frame", {Parent = MainFrame, BackgroundColor3 = BackgroundColor, BackgroundTransparency = 1, Size = UDim2.new(0, 160, 1, -40), Position = UDim2.new(0, 0, 0, 40), Active = true})
+    local InitialSidebarWidth = math.clamp(windowWidth * 0.25, 135, 175)
+
+    local Sidebar = Create("Frame", {Parent = MainFrame, BackgroundColor3 = BackgroundColor, BackgroundTransparency = 1, Size = UDim2.new(0, InitialSidebarWidth, 1, -40), Position = UDim2.new(0, 0, 0, 40), Active = true})
     local TabSearchBox = Create("TextBox", {Parent = Sidebar, BackgroundColor3 = CardColor, Size = UDim2.new(1, -20, 0, 26), Position = UDim2.new(0, 10, 0, 5), Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = TextColor, PlaceholderText = "Search tabs...", TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false})
     Create("UIPadding", {Parent = TabSearchBox, PaddingLeft = UDim.new(0, 8)})
     Create("UICorner", {Parent = TabSearchBox, CornerRadius = UDim.new(0, 4)})
@@ -555,9 +603,28 @@ function Library:CreateWindow(options)
     
     local TabContainer = Create("ScrollingFrame", {Parent = Sidebar, BackgroundTransparency = 1, Size = UDim2.new(1, -15, 1, -40), Position = UDim2.new(0, 10, 0, 40), ScrollBarThickness = 0})
     Create("UIListLayout", {Parent = TabContainer, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 5)})
-    local Divider = Create("Frame", {Parent = MainFrame, BackgroundColor3 = Color3.fromRGB(40, 40, 45), BorderSizePixel = 0, Size = UDim2.new(0, 1, 1, -40), Position = UDim2.new(0, 160, 0, 40)})
+    local Divider = Create("Frame", {Parent = MainFrame, BackgroundColor3 = Color3.fromRGB(40, 40, 45), BorderSizePixel = 0, Size = UDim2.new(0, 1, 1, -40), Position = UDim2.new(0, InitialSidebarWidth, 0, 40)})
 
-    local ContentArea = Create("Frame", {Parent = MainFrame, BackgroundTransparency = 1, Size = UDim2.new(1, -165, 1, -40), Position = UDim2.new(0, 165, 0, 40), Active = true})
+    local ContentArea = Create("Frame", {Parent = MainFrame, BackgroundTransparency = 1, Size = UDim2.new(1, -InitialSidebarWidth - 5, 1, -40), Position = UDim2.new(0, InitialSidebarWidth + 5, 0, 40), Active = true})
+
+    -- // Resize behavior / responsive layout
+    MakeResizable(MainFrame, ResizeHandle, function(NewWidth, NewHeight)
+        local SidebarWidth = math.clamp(NewWidth * 0.25, 135, 175)
+
+        Sidebar.Size = UDim2.new(0, SidebarWidth, 1, -40)
+        Divider.Position = UDim2.new(0, SidebarWidth, 0, 40)
+        ContentArea.Position = UDim2.new(0, SidebarWidth + 5, 0, 40)
+        ContentArea.Size = UDim2.new(1, -SidebarWidth - 5, 1, -40)
+
+        local SearchStart = titleOffsetX + 175
+        local SearchEndSpace = 105
+        local AvailableWidth = NewWidth - SearchStart - SearchEndSpace
+
+        SearchBar.Position = UDim2.new(0, SearchStart, 0.5, -13)
+        SearchBar.Size = UDim2.fromOffset(math.max(150, AvailableWidth), 26)
+
+        UpdateBottomBar()
+    end)
 
     local Sphere = Create("ImageButton", {Parent = ScreenGui, BackgroundColor3 = BackgroundColor, BackgroundTransparency = 0.2, Size = UDim2.new(0, 50, 0, 50), Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), Visible = false, AutoButtonColor = false, ImageTransparency = 1, ClipsDescendants = true})
     Create("UICorner", {Parent = Sphere, CornerRadius = UDim.new(1, 0)})
@@ -586,7 +653,7 @@ function Library:CreateWindow(options)
         Tween(BottomBarStroke, {Transparency = 1}, 0.4)
         task.wait(0.3)
         MainFrame.Visible = false
-        -- BottomDragHitbox hides automatically (child of MainFrame now)
+        BottomDragHitbox.Visible = false
         Sphere.Visible = true
         Tween(Sphere, {Size = UDim2.new(0, 50, 0, 50)}, 0.4)
         
@@ -848,20 +915,13 @@ function Library:CreateWindow(options)
                 local SectionContainer = Create("Frame", {Parent = targetColumn, BackgroundColor3 = CardColor, Size = UDim2.new(1, 0, 0, 30), AutomaticSize = Enum.AutomaticSize.Y, ClipsDescendants = true})
                 Create("UICorner", {Parent = SectionContainer, CornerRadius = UDim.new(0, 6)})
                 
-                local cardEntry = {
+                table.insert(Window.AllCards, {
                     Card = SectionContainer,
                     OrigParent = targetColumn,
                     Tab = TabConfig,
                     Page = PageObj,
-                    SearchIndex = nil
-                }
-                table.insert(Window.AllCards, cardEntry)
-                -- Build SearchIndex after this frame so all children exist
-                task.defer(function()
-                    if SectionContainer and SectionContainer.Parent then
-                        cardEntry.SearchIndex = BuildSearchIndex(SectionContainer)
-                    end
-                end)
+                    SearchIndex = nil 
+                })
                 
                 local Title = Create("TextLabel", {Parent = SectionContainer, Text = sectionName, Font = Enum.Font.GothamBold, TextSize = 13, TextColor3 = TextColor, BackgroundTransparency = 1, Size = UDim2.new(1, -20, 0, 30), Position = UDim2.new(0, 10, 0, 0), TextXAlignment = Enum.TextXAlignment.Left})
                 local ItemContainer = Create("Frame", {Parent = SectionContainer, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), Position = UDim2.new(0, 0, 0, 30), AutomaticSize = Enum.AutomaticSize.Y})
