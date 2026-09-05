@@ -324,7 +324,7 @@ function Library:CreateWindow(options)
 
     local viewport = workspace.CurrentCamera.ViewportSize
 
-    local windowWidth = math.min(650, viewport.X - 30)
+    local windowWidth = math.min(650, viewport.X - 40)
     local windowHeight = math.min(420, viewport.Y - 60)
 
     local MainFrame = Create("Frame", {
