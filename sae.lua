@@ -19,7 +19,10 @@ local Window = Library:CreateWindow({
     SphereIconSize = 38,
 })
 
--- Dummy state so callbacks do not depend on the gameplay script.
+-- =============================================================================
+-- STATE / HELPERS
+-- =============================================================================
+
 local state = {}
 
 local function set(key, value)
@@ -103,72 +106,97 @@ local function playerList()
     return names
 end
 
+local function addPlaceholderButton(section, title)
+    section:AddButton(title, function()
+        note("UI Test", "Button clicked: " .. title)
+    end)
+end
+
 -- =============================================================================
 -- TAB 1: HOME
+-- One page -> Session / Account / Quick Actions / Quick Start
 -- =============================================================================
 
 local HomeTab = Window:CreateTab("Home", true, false)
+local HomePage = HomeTab:CreatePage("Home")
 
-local SessionMain = HomeTab:CreatePage("Session")
-local SessionSec = SessionMain:CreateSection("Session")
-SessionSec:AddButton("UI Status", function()
-    note("Oxio Hub", "UI-only test build is running normally.")
+local SessionSec = HomePage:CreateSection("Session")
+SessionSec:AddButton("Automation Status", function()
+    note("Session", "UI-only test build is running.")
+end)
+SessionSec:AddButton("Current Job", function()
+    note("Session", "Current server/session status is mock-only.")
+end)
+SessionSec:AddButton("Runtime", function()
+    note("Session", "Runtime display is mock-only.")
 end)
 
-local QuickMain = HomeTab:CreatePage("Quick Actions")
-local QuickSec = QuickMain:CreateSection("Quick Actions")
+local AccountSec = HomePage:CreateSection("Account")
+AccountSec:AddButton("Egg Inventory", function()
+    note("Account", "Egg inventory information is mock-only.")
+end)
+AccountSec:AddButton("Money", function()
+    note("Account", "Money information is mock-only.")
+end)
+AccountSec:AddButton("Pets Owned", function()
+    note("Account", "Pet count information is mock-only.")
+end)
+AccountSec:AddButton("Rebirths", function()
+    note("Account", "Rebirth information is mock-only.")
+end)
+
+local QuickSec = HomePage:CreateSection("Quick Actions")
 QuickSec:AddButton("Steal Best Available Egg Once", function()
-    note("Quick Action", "Steal Best Available Egg Once")
+    note("Quick Action", "Button clicked: Steal Best Available Egg Once")
 end)
 QuickSec:AddButton("Hatch All Ready Eggs Now", function()
-    note("Quick Action", "Hatch All Ready Eggs Now")
+    note("Quick Action", "Button clicked: Hatch All Ready Eggs Now")
 end)
 QuickSec:AddButton("Place Carried Eggs in Pen Now", function()
-    note("Quick Action", "Place Carried Eggs in Pen Now")
+    note("Quick Action", "Button clicked: Place Carried Eggs in Pen Now")
 end)
 QuickSec:AddButton("Upgrade Base Now", function()
-    note("Quick Action", "Upgrade Base Now")
-end)
-QuickSec:AddButton("Upgrade Treadmill Now", function()
-    note("Quick Action", "Upgrade Treadmill Now")
+    note("Quick Action", "Button clicked: Upgrade Base Now")
 end)
 QuickSec:AddButton("Equip Best Pets Now", function()
-    note("Quick Action", "Equip Best Pets Now")
+    note("Quick Action", "Button clicked: Equip Best Pets Now")
+end)
+QuickSec:AddButton("Server Hop Now", function()
+    note("Quick Action", "Button clicked: Server Hop Now")
 end)
 
-local OverviewMain = HomeTab:CreatePage("Overview")
-local OverviewSec = OverviewMain:CreateSection("What is where")
-OverviewSec:AddButton("Farm", function()
-    note("Navigation", "Farm contains stealing, hatching, planting and egg tracking.")
+local HelpSec = HomePage:CreateSection("Quick Start")
+HelpSec:AddButton("Farm", function()
+    note("Quick Start", "Use Farm for stealing, egg handling and server-hop controls.")
 end)
-OverviewSec:AddButton("Pets", function()
-    note("Navigation", "Pets contains pet management and selling.")
+HelpSec:AddButton("Pets", function()
+    note("Quick Start", "Use Pets for pet fusion and selling.")
 end)
-OverviewSec:AddButton("Progress", function()
-    note("Navigation", "Progress contains upgrades, events and rewards.")
+HelpSec:AddButton("Progress", function()
+    note("Quick Start", "Use Progress for upgrades, rewards, equipment and training.")
 end)
-OverviewSec:AddButton("Player", function()
-    note("Navigation", "Player contains movement, travel, combat and visuals.")
+HelpSec:AddButton("Player", function()
+    note("Quick Start", "Use Player for ESP, movement and teleports.")
 end)
-OverviewSec:AddButton("System", function()
-    note("Navigation", "System contains performance, configuration and about.")
+HelpSec:AddButton("System", function()
+    note("Quick Start", "Use System for session, performance, webhooks and about.")
 end)
 
 -- =============================================================================
 -- TAB 2: FARM
+-- One page -> Steal Eggs / Egg Handling / Server Hop / Task Order
 -- =============================================================================
 
 local FarmTab = Window:CreateTab("Farm", false, false)
+local FarmPage = FarmTab:CreatePage("Farm")
 
-local FarmStealPage = FarmTab:CreatePage("Steal")
-local StealMain = FarmStealPage:CreateSection("Steal Eggs")
-
-StealMain:AddToggle("Auto Steal Eggs", false, function(v)
+local StealSec = FarmPage:CreateSection("Steal Eggs")
+StealSec:AddToggle("Auto Steal Eggs", false, function(v)
     set("autoSteal", v)
     note("Auto Steal", v and "Enabled" or "Disabled")
 end)
 
-StealMain:AddDropdown(
+StealSec:AddDropdown(
     "Steal Movement Method",
     {"Tween Glide", "Fly Glide", "Safe Walk", "Instant Safe TP"},
     false,
@@ -177,19 +205,19 @@ StealMain:AddDropdown(
     end
 )
 
-StealMain:AddToggle("Steal Infested / Parasite Eggs Only", false, function(v)
+StealSec:AddToggle("Steal Infested / Parasite Eggs Only", false, function(v)
     set("parasiteOnly", v)
 end)
 
-StealMain:AddToggle("Instant Prompt Pickup", false, function(v)
+StealSec:AddToggle("Instant Prompt Pickup", false, function(v)
     set("instantPickup", v)
 end)
 
-StealMain:AddToggle("Rare Egg Hunter (Highest Rarity First)", true, function(v)
+StealSec:AddToggle("Rare Egg Hunter (Highest Rarity First)", true, function(v)
     set("rareHunter", v)
 end)
 
-StealMain:AddDropdown(
+StealSec:AddDropdown(
     "Filter by Rarity (Multi-Select)",
     RARITY_NAMES,
     true,
@@ -198,7 +226,7 @@ StealMain:AddDropdown(
     end
 )
 
-StealMain:AddDropdown(
+StealSec:AddDropdown(
     "Filter by Area (Multi-Select)",
     AREA_NAMES,
     true,
@@ -207,7 +235,7 @@ StealMain:AddDropdown(
     end
 )
 
-StealMain:AddDropdown(
+StealSec:AddDropdown(
     "Filter by Mutation (Multi-Select)",
     MUTATION_FILTERS,
     true,
@@ -216,47 +244,44 @@ StealMain:AddDropdown(
     end
 )
 
-StealMain:AddSlider("Glide / Travel Speed", 50, 750, 200, function(v)
+StealSec:AddSlider("Glide / Travel Speed", 50, 750, 200, function(v)
     set("glideSpeed", v)
 end)
 
-StealMain:AddSlider("Steal Delay Gap", 0.5, 10, 1.5, function(v)
+StealSec:AddSlider("Steal Delay Gap", 0.5, 10, 1.5, function(v)
     set("stealDelay", v)
 end)
 
-StealMain:AddButton("Steal Best Available Egg Once", function()
+StealSec:AddButton("Steal Best Available Egg Once", function()
     note("UI Test", "Button clicked: Steal Best Available Egg Once")
 end)
 
-local FarmHandlingPage = FarmTab:CreatePage("Egg Handling")
-
-local HatchSec = FarmHandlingPage:CreateSection("Hatching & Planting")
-HatchSec:AddToggle("Auto Hatch Ready Eggs", false, function(v)
+local HandlingSec = FarmPage:CreateSection("Egg Handling")
+HandlingSec:AddToggle("Auto Hatch Ready Eggs", false, function(v)
     set("autoHatch", v)
 end)
 
-HatchSec:AddToggle("Auto Place Egg (Base Pen)", false, function(v)
+HandlingSec:AddToggle("Auto Place Egg (Base Pen)", false, function(v)
     set("autoPlant", v)
 end)
 
-HatchSec:AddSlider("Hatch Check Delay", 0.5, 10, 2.0, function(v)
+HandlingSec:AddSlider("Hatch Check Delay", 0.5, 10, 2.0, function(v)
     set("hatchDelay", v)
 end)
 
-HatchSec:AddButton("Hatch All Ready Eggs Now", function()
+HandlingSec:AddButton("Hatch All Ready Eggs Now", function()
     note("UI Test", "Button clicked: Hatch All Ready Eggs Now")
 end)
 
-HatchSec:AddButton("Place Carried Eggs in Pen Now", function()
+HandlingSec:AddButton("Place Carried Eggs in Pen Now", function()
     note("UI Test", "Button clicked: Place Carried Eggs in Pen Now")
 end)
 
-local EggSellSec = FarmHandlingPage:CreateSection("Egg Sales")
-EggSellSec:AddToggle("Auto Sell Low-Tier Eggs", false, function(v)
+HandlingSec:AddToggle("Auto Sell Low-Tier Eggs", false, function(v)
     set("sellEggs", v)
 end)
 
-EggSellSec:AddDropdown(
+HandlingSec:AddDropdown(
     "Filter Egg Sell Rarities",
     RARITY_NAMES,
     true,
@@ -265,58 +290,105 @@ EggSellSec:AddDropdown(
     end
 )
 
-EggSellSec:AddButton("Sell Selected Eggs Now", function()
+HandlingSec:AddButton("Sell Selected Eggs Now", function()
     note("UI Test", "Button clicked: Sell Selected Eggs Now")
 end)
 
-local FarmEspPage = FarmTab:CreatePage("Tracker")
-local EspMain = FarmEspPage:CreateSection("Egg Tracker")
-
-EspMain:AddToggle("Egg ESP Enabled", false, function(v)
-    set("eggEsp", v)
+local ServerSec = FarmPage:CreateSection("Server Hop")
+ServerSec:AddToggle("Auto Server Hop", false, function(v)
+    set("autoServerHop", v)
 end)
 
-EspMain:AddToggle("Show 3D Pet Image Badges", true, function(v)
-    set("petBadges", v)
+ServerSec:AddDropdown(
+    "Hop Condition",
+    {"No Matching Eggs", "Timed Interval", "After Steal Count"},
+    false,
+    function(v)
+        set("hopCondition", v)
+    end
+)
+
+ServerSec:AddSlider("Hop Delay", 1, 200, 15, function(v)
+    set("hopDelay", v)
 end)
 
-EspMain:AddToggle("Trap ESP (Highlights Enemy Traps)", false, function(v)
-    set("trapEsp", v)
+ServerSec:AddButton("Hop to New Server", function()
+    note("UI Test", "Button clicked: Hop to New Server")
 end)
 
-EspMain:AddToggle("Show Mutated / Rare Eggs Only", false, function(v)
-    set("rareOnly", v)
-end)
+local TaskSec = FarmPage:CreateSection("Task Order")
+TaskSec:AddDropdown(
+    "Priority Slot 1",
+    {"Auto Steal", "Auto Place", "Auto Hatch", "Auto Treadmill"},
+    false,
+    function(v)
+        set("priority1", v)
+    end
+)
 
-EspMain:AddSlider("Max ESP Distance", 100, 2500, 800, function(v)
-    set("espDistance", v)
-end)
+TaskSec:AddDropdown(
+    "Priority Slot 2",
+    {"Auto Steal", "Auto Place", "Auto Hatch", "Auto Treadmill"},
+    false,
+    function(v)
+        set("priority2", v)
+    end
+)
+
+TaskSec:AddDropdown(
+    "Priority Slot 3",
+    {"Auto Steal", "Auto Place", "Auto Hatch", "Auto Treadmill"},
+    false,
+    function(v)
+        set("priority3", v)
+    end
+)
 
 -- =============================================================================
 -- TAB 3: PETS
+-- One page -> Auto Fuse / Auto Sell Pets
 -- =============================================================================
 
 local PetsTab = Window:CreateTab("Pets", false, false)
+local PetsPage = PetsTab:CreatePage("Pets")
 
-local PetsMainPage = PetsTab:CreatePage("Management")
-local PetsManageSec = PetsMainPage:CreateSection("Pets")
-
-PetsManageSec:AddToggle("Auto Equip Best Pets", false, function(v)
-    set("autoBestPets", v)
+local FuseSec = PetsPage:CreateSection("Auto Fuse")
+FuseSec:AddToggle("Auto Fuse Duplicate Pets", false, function(v)
+    set("autoFuse", v)
 end)
 
-PetsManageSec:AddButton("Equip Best Pets Now", function()
-    note("UI Test", "Button clicked: Equip Best Pets Now")
+FuseSec:AddDropdown(
+    "Fuse Target Priority",
+    {"Highest Rarity", "Lowest Rarity", "Most Duplicates"},
+    false,
+    function(v)
+        set("fusePriority", v)
+    end
+)
+
+FuseSec:AddToggle("Fuse Only Selected Rarities", false, function(v)
+    set("fuseSelected", v)
 end)
 
-local PetsSellPage = PetsTab:CreatePage("Selling")
-local PetsSellSec = PetsSellPage:CreateSection("Pet Sales")
+FuseSec:AddDropdown(
+    "Fuse Rarities",
+    RARITY_NAMES,
+    true,
+    function(v)
+        set("fuseRarities", v)
+    end
+)
 
-PetsSellSec:AddToggle("Auto Sell Low-Tier Pets", false, function(v)
+FuseSec:AddButton("Fuse Selected Pets Now", function()
+    note("UI Test", "Button clicked: Fuse Selected Pets Now")
+end)
+
+local SellPetsSec = PetsPage:CreateSection("Auto Sell Pets")
+SellPetsSec:AddToggle("Auto Sell Low-Tier Pets", false, function(v)
     set("sellPets", v)
 end)
 
-PetsSellSec:AddDropdown(
+SellPetsSec:AddDropdown(
     "Filter Pet Sell Rarities",
     RARITY_NAMES,
     true,
@@ -325,125 +397,155 @@ PetsSellSec:AddDropdown(
     end
 )
 
-PetsSellSec:AddButton("Sell Selected Pets Now", function()
+SellPetsSec:AddButton("Sell Selected Pets Now", function()
     note("UI Test", "Button clicked: Sell Selected Pets Now")
-end)
-
-local PetsFusePage = PetsTab:CreatePage("Fuse")
-local FuseSec = PetsFusePage:CreateSection("Pet Fusion")
-
-FuseSec:AddButton("Fuse Selected Pets", function()
-    note("UI Test", "Button clicked: Fuse Selected Pets")
-end)
-
-FuseSec:AddButton("Auto Fuse Duplicates", function()
-    note("UI Test", "Button clicked: Auto Fuse Duplicates")
 end)
 
 -- =============================================================================
 -- TAB 4: PROGRESS
+-- One page -> Upgrades / Rewards / Equipment / Training
 -- =============================================================================
 
 local ProgressTab = Window:CreateTab("Progress", false, false)
+local ProgressPage = ProgressTab:CreatePage("Progress")
 
-local ProgressUpgradePage = ProgressTab:CreatePage("Upgrades")
-local UpgradesSec = ProgressUpgradePage:CreateSection("Homestead & Training")
-
-UpgradesSec:AddToggle("Auto Upgrade Base / Plot", false, function(v)
+local UpgradeSec = ProgressPage:CreateSection("Upgrades")
+UpgradeSec:AddToggle("Auto Upgrade Base / Plot", false, function(v)
     set("autoBase", v)
 end)
 
-UpgradesSec:AddToggle("Auto Upgrade Treadmill Tier", false, function(v)
+UpgradeSec:AddToggle("Auto Upgrade Treadmill Tier", false, function(v)
     set("autoTreadmill", v)
 end)
 
-UpgradesSec:AddToggle("Auto Buy Speed Trails", false, function(v)
+UpgradeSec:AddToggle("Auto Buy Speed Trails", false, function(v)
     set("autoTrails", v)
 end)
 
-UpgradesSec:AddButton("Upgrade Base Now", function()
+UpgradeSec:AddButton("Upgrade Base Now", function()
     note("UI Test", "Button clicked: Upgrade Base Now")
 end)
 
-UpgradesSec:AddButton("Upgrade Treadmill Now", function()
+UpgradeSec:AddButton("Upgrade Treadmill Now", function()
     note("UI Test", "Button clicked: Upgrade Treadmill Now")
 end)
 
-local ProgressEventsPage = ProgressTab:CreatePage("Events")
-local EventsSec = ProgressEventsPage:CreateSection("Monster Event")
-
-EventsSec:AddToggle("Auto Claim Monster Chests", false, function(v)
-    set("autoChests", v)
-end)
-
-EventsSec:AddToggle("Auto Feed Monster Parasite", false, function(v)
-    set("autoFeed", v)
-end)
-
-EventsSec:AddButton("Claim Monster Chest Now", function()
-    note("UI Test", "Button clicked: Claim Monster Chest Now")
-end)
-
-EventsSec:AddButton("Feed Monster Parasite Now", function()
-    note("UI Test", "Button clicked: Feed Monster Parasite Now")
-end)
-
-local ProgressRewardsPage = ProgressTab:CreatePage("Rewards")
-local RewardsSec = ProgressRewardsPage:CreateSection("Rewards")
-
+local RewardsSec = ProgressPage:CreateSection("Rewards")
 RewardsSec:AddToggle("Auto Claim Away Earnings & Codex", false, function(v)
     set("autoRewards", v)
+end)
+
+RewardsSec:AddToggle("Auto Claim Monster Chests", false, function(v)
+    set("autoChests", v)
 end)
 
 RewardsSec:AddButton("Claim Away Earnings & Codex Now", function()
     note("UI Test", "Button clicked: Claim Away Earnings & Codex Now")
 end)
 
+RewardsSec:AddButton("Claim Monster Chest Now", function()
+    note("UI Test", "Button clicked: Claim Monster Chest Now")
+end)
+
+RewardsSec:AddButton("Feed Monster Parasite Now", function()
+    note("UI Test", "Button clicked: Feed Monster Parasite Now")
+end)
+
+local EquipmentSec = ProgressPage:CreateSection("Equipment")
+EquipmentSec:AddToggle("Auto Equip Best Pets", false, function(v)
+    set("autoBestPets", v)
+end)
+
+EquipmentSec:AddButton("Equip Best Pets Now", function()
+    note("UI Test", "Button clicked: Equip Best Pets Now")
+end)
+
+EquipmentSec:AddButton("Equipment / Gear Upgrade", function()
+    note("UI Test", "Button clicked: Equipment / Gear Upgrade")
+end)
+
+local TrainingSec = ProgressPage:CreateSection("Training")
+TrainingSec:AddToggle("Enable Treadmill Training", false, function(v)
+    set("training", v)
+end)
+
+TrainingSec:AddToggle("Auto Upgrade Treadmill Tier", false, function(v)
+    set("autoTreadmillTraining", v)
+end)
+
+TrainingSec:AddSlider("Training Speed", 1, 1000, 60, function(v)
+    set("trainingSpeed", v)
+end)
+
+TrainingSec:AddButton("Start Training Now", function()
+    note("UI Test", "Button clicked: Start Training Now")
+end)
+
 -- =============================================================================
 -- TAB 5: PLAYER
+-- One page -> ESP / Movement / Teleports
 -- =============================================================================
 
 local PlayerTab = Window:CreateTab("Player", false, false)
+local PlayerPage = PlayerTab:CreatePage("Player")
 
-local MovementPage = PlayerTab:CreatePage("Movement")
-local MoveMain = MovementPage:CreateSection("Character Movement")
+local EspSec = PlayerPage:CreateSection("ESP")
+EspSec:AddToggle("Egg ESP Enabled", false, function(v)
+    set("eggEsp", v)
+end)
 
-MoveMain:AddToggle("Enable WalkSpeed", false, function(v)
+EspSec:AddToggle("Show 3D Pet Image Badges", true, function(v)
+    set("petBadges", v)
+end)
+
+EspSec:AddToggle("Trap ESP (Highlights Enemy Traps)", false, function(v)
+    set("trapEsp", v)
+end)
+
+EspSec:AddToggle("Show Mutated / Rare Eggs Only", false, function(v)
+    set("rareOnly", v)
+end)
+
+EspSec:AddSlider("Max ESP Distance", 100, 2500, 800, function(v)
+    set("espDistance", v)
+end)
+
+local MovementSec = PlayerPage:CreateSection("Movement")
+MovementSec:AddToggle("Enable WalkSpeed", false, function(v)
     set("walkSpeedEnabled", v)
 end)
 
-MoveMain:AddSlider("WalkSpeed Value", 16, 10000, 24, function(v)
+MovementSec:AddSlider("WalkSpeed Value", 16, 10000, 24, function(v)
     set("walkSpeed", v)
 end)
 
-MoveMain:AddToggle("Enable JumpPower", false, function(v)
+MovementSec:AddToggle("Enable JumpPower", false, function(v)
     set("jumpPowerEnabled", v)
 end)
 
-MoveMain:AddSlider("JumpPower Value", 50, 300, 60, function(v)
+MovementSec:AddSlider("JumpPower Value", 50, 300, 60, function(v)
     set("jumpPower", v)
 end)
 
-MoveMain:AddToggle("Infinite Jump", false, function(v)
+MovementSec:AddToggle("Infinite Jump", false, function(v)
     set("infiniteJump", v)
 end)
 
-MoveMain:AddToggle("Smooth Fly (WASD + Space/Shift)", false, function(v)
+MovementSec:AddToggle("Smooth Fly (WASD + Space/Shift)", false, function(v)
     set("fly", v)
 end)
 
-MoveMain:AddSlider("Fly Speed", 20, 250, 60, function(v)
+MovementSec:AddSlider("Fly Speed", 20, 250, 60, function(v)
     set("flySpeed", v)
 end)
 
-MoveMain:AddToggle("Anti-AFK (Bypass 20min Kick)", false, function(v)
+MovementSec:AddToggle("Anti-AFK (Bypass 20min Kick)", false, function(v)
     set("antiAfk", v)
 end)
 
-local TravelPage = PlayerTab:CreatePage("Travel")
+local TeleportSec = PlayerPage:CreateSection("Teleports")
 
-local AreaSec = TravelPage:CreateSection("Area Travel")
-AreaSec:AddDropdown(
+TeleportSec:AddDropdown(
     "Select Area",
     areaKeys,
     false,
@@ -452,12 +554,11 @@ AreaSec:AddDropdown(
     end
 )
 
-AreaSec:AddButton("Travel to Selected Area", function()
+TeleportSec:AddButton("Travel to Selected Area", function()
     note("UI Test", "Button clicked: Travel to Selected Area")
 end)
 
-local PlotSec = TravelPage:CreateSection("Plot Travel")
-PlotSec:AddDropdown(
+TeleportSec:AddDropdown(
     "Select Plot",
     plotOptions,
     false,
@@ -466,12 +567,11 @@ PlotSec:AddDropdown(
     end
 )
 
-PlotSec:AddButton("Travel to Plot", function()
+TeleportSec:AddButton("Travel to Plot", function()
     note("UI Test", "Button clicked: Travel to Plot")
 end)
 
-local PlayerTravelSec = TravelPage:CreateSection("Player Travel")
-PlayerTravelSec:AddDropdown(
+TeleportSec:AddDropdown(
     "Select Player",
     playerList(),
     false,
@@ -480,70 +580,24 @@ PlayerTravelSec:AddDropdown(
     end
 )
 
-PlayerTravelSec:AddTextbox("Player Name", "Enter username...", function(v)
+TeleportSec:AddTextbox("Player Name", "Enter username...", function(v)
     set("playerName", v)
 end)
 
-PlayerTravelSec:AddButton("Travel to Player", function()
+TeleportSec:AddButton("Travel to Player", function()
     note("UI Test", "Button clicked: Travel to Player")
-end)
-
-local CombatPage = PlayerTab:CreatePage("Combat")
-
-local BatSec = CombatPage:CreateSection("Bat / Slap Aura")
-BatSec:AddToggle("Bat / Slap Aura", false, function(v)
-    set("batAura", v)
-end)
-
-BatSec:AddSlider("Aura Radius", 5, 50, 20, function(v)
-    set("auraRadius", v)
-end)
-
-BatSec:AddSlider("Swing Delay", 0.05, 1.0, 0.2, function(v)
-    set("swingDelay", v)
-end)
-
-BatSec:AddButton("Swing Bat Once (Manual)", function()
-    note("UI Test", "Button clicked: Swing Bat Once (Manual)")
-end)
-
-local GuardSec = CombatPage:CreateSection("Defense")
-
-GuardSec:AddToggle("Anti-Trap (Full Immunity / Destroy Hitboxes)", false, function(v)
-    set("antiTrap", v)
-end)
-
-GuardSec:AddToggle("No Knockback / Ragdoll Immunity", false, function(v)
-    set("noKnockback", v)
-end)
-
-GuardSec:AddToggle("Anti-Ragdoll (Quick Standup)", false, function(v)
-    set("antiRagdoll", v)
-end)
-
-local VisualPage = PlayerTab:CreatePage("Visuals")
-local VisualSec = VisualPage:CreateSection("Visuals & Performance")
-
-VisualSec:AddToggle("Fullbright (Daylight Visuals)", false, function(v)
-    set("fullbright", v)
-end)
-
-VisualSec:AddButton("Delete Own Pet Renders (FPS Boost)", function()
-    note("UI Test", "Button clicked: Delete Own Pet Renders (FPS Boost)")
 end)
 
 -- =============================================================================
 -- TAB 6: SYSTEM
+-- One page -> Session / Performance / Webhooks / About
 -- =============================================================================
 
 local SystemTab = Window:CreateTab("System", false, false)
+local SystemPage = SystemTab:CreatePage("System")
 
-local ConfigPage = SystemTab:CreatePage("Configuration")
-local ConfigMain = ConfigPage:CreateSection("Configuration")
-
-ConfigMain:AddConfigManager("stealanegg_ui_test")
-
-ConfigMain:AddButton("Toggle UI (Right Control)", function()
+local SystemSessionSec = SystemPage:CreateSection("Session")
+SystemSessionSec:AddButton("Toggle UI (Right Control)", function()
     local gui = Window.MainFrame and Window.MainFrame.Parent
 
     if gui and gui:IsA("ScreenGui") then
@@ -551,25 +605,54 @@ ConfigMain:AddButton("Toggle UI (Right Control)", function()
     end
 end)
 
-ConfigMain:AddButton("Unload UI", function()
-    local gui = Window.MainFrame and Window.MainFrame.Parent
-
-    if gui then
-        gui:Destroy()
-    end
+SystemSessionSec:AddButton("Refresh Player List", function()
+    note("System", "Player list refresh is mock-only in this UI test.")
 end)
 
-local PerfPage = SystemTab:CreatePage("Performance")
-local PerfMain = PerfPage:CreateSection("Performance")
-
-PerfMain:AddButton("Performance Test", function()
-    note("Performance", "UI performance controls are currently mock-only.")
+local PerformanceSec = SystemPage:CreateSection("Performance")
+PerformanceSec:AddToggle("Fullbright (Daylight Visuals)", false, function(v)
+    set("fullbright", v)
 end)
 
-local AboutPage = SystemTab:CreatePage("About")
-local AboutMain = AboutPage:CreateSection("About Oxio Hub")
+PerformanceSec:AddButton("Delete Own Pet Renders (FPS Boost)", function()
+    note("UI Test", "Button clicked: Delete Own Pet Renders (FPS Boost)")
+end)
 
-AboutMain:AddButton("About Oxio Hub", function()
+PerformanceSec:AddButton("Performance Test", function()
+    note("Performance", "Performance controls are currently mock-only.")
+end)
+
+local WebhookSec = SystemPage:CreateSection("Webhooks")
+WebhookSec:AddToggle("Enable Webhooks", false, function(v)
+    set("webhooks", v)
+end)
+
+WebhookSec:AddTextbox("Webhook URL", "https://discord.com/api/webhooks/...", function(v)
+    set("webhookUrl", v)
+end)
+
+WebhookSec:AddTextbox("Ping User ID", "123456789012345678", function(v)
+    set("webhookPingId", v)
+end)
+
+WebhookSec:AddSlider("Summary Interval", 1, 180, 15, function(v)
+    set("webhookInterval", v)
+end)
+
+WebhookSec:AddToggle("List Spawned Eggs", true, function(v)
+    set("webhookEggSpawns", v)
+end)
+
+WebhookSec:AddToggle("Disconnect Alerts", false, function(v)
+    set("webhookDisconnect", v)
+end)
+
+WebhookSec:AddButton("Send Summary Now", function()
+    note("Webhook", "Button clicked: Send Summary Now")
+end)
+
+local AboutSec = SystemPage:CreateSection("About")
+AboutSec:AddButton("About Oxio Hub", function()
     note(
         "Oxio Hub",
         "UI-only test build • gameplay logic intentionally removed",
@@ -577,16 +660,24 @@ AboutMain:AddButton("About Oxio Hub", function()
     )
 end)
 
-AboutMain:AddButton("Library Info", function()
-    note(
-        "Oxio UI",
-        "Oxio UI Library • feature grouping",
-        4
-    )
+AboutSec:AddButton("UI Library", function()
+    note("Oxio UI", "Oxio UI Library")
+end)
+
+AboutSec:AddButton("Script Info", function()
+    note("StealAnEgg", "single-page tab layout")
+end)
+
+AboutSec:AddButton("Unload UI", function()
+    local gui = Window.MainFrame and Window.MainFrame.Parent
+
+    if gui then
+        gui:Destroy()
+    end
 end)
 
 -- =============================================================================
--- KEYBIND
+-- RIGHT CONTROL
 -- =============================================================================
 
 UIS.InputBegan:Connect(function(input, processed)
