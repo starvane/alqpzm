@@ -1,7 +1,7 @@
 -- StealAnEgg - ZyronX UI
 -- UI mock/test build
 
-local Library = loadstring(game:HttpGetAsync("https://pastefy.app/YoX4PJmf/raw"))()
+local Library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/starvane/alqpzm/refs/heads/main/zxasqw.lua"))()
 assert(type(Library) == "table" and type(Library.CreateWindow) == "function", "ZyronX Library failed to load")
 
 local Players = game:GetService("Players")
