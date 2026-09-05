@@ -1,8 +1,8 @@
--- StealAnEgg - ZyronX UI
+-- StealAnEgg - Oxio UI
 -- UI mock/test build
 
 local Library = loadstring(game:HttpGetAsync("https://raw.githubusercontent.com/starvane/alqpzm/refs/heads/main/zxasqw.lua"))()
-assert(type(Library) == "table" and type(Library.CreateWindow) == "function", "ZyronX Library failed to load")
+assert(type(Library) == "table" and type(Library.CreateWindow) == "function", "Oxio Library failed to load")
 
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
@@ -202,4 +202,4 @@ UIS.InputBegan:Connect(function(input, processed)
     end
 end)
 
-print("[StealAnEgg] ZyronX UI test loaded")
+print("[StealAnEgg] Oxio UI test loaded")
