@@ -340,106 +340,77 @@ function Library:CreateWindow(options)
     local MainFrame = Create("Frame", {Parent = ScreenGui, BackgroundColor3 = BackgroundColor, Size = UDim2.fromOffset(windowWidth, windowHeight), Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), ClipsDescendants = true, BackgroundTransparency = 1, Active = true})
     local MainScale = Create("UIScale", {Parent = MainFrame, Scale = 0.8})
 
-    -- // Resize Handle - Bottom Right Corner
-    local ResizeHandle = Create("TextButton", {
-        Parent = MainFrame,
-        Text = "",
-        BackgroundTransparency = 1,
-        Size = UDim2.new(0, 24, 0, 24),
-        Position = UDim2.new(1, -24, 1, -24),
-        AutoButtonColor = false,
-        Active = true,
-        ZIndex = 20
-    })
-
-    -- Resize grip: 3 diagonal lines (standard OS resize indicator)
-    -- Hover highlight on ResizeHandle so user knows it's interactive
-    local _gripColor = Color3.fromRGB(90, 90, 95)
-    local function _makeGripLine(offsetX, offsetY, len)
-        local line = Create("Frame", {
-            Parent = ResizeHandle,
-            BackgroundColor3 = _gripColor,
-            BackgroundTransparency = 0.2,
-            Size = UDim2.new(0, 2, 0, len),
-            Position = UDim2.new(1, offsetX, 1, offsetY),
-            AnchorPoint = Vector2.new(1, 1),
-            Rotation = 45,
-            ZIndex = 21,
-            BorderSizePixel = 0
-        })
-        Create("UICorner", {Parent = line, CornerRadius = UDim.new(1, 0)})
-        return line
-    end
-    local _g1 = _makeGripLine(-2,  -2,  6)
-    local _g2 = _makeGripLine(-6,  -2, 10)
-    local _g3 = _makeGripLine(-10, -2, 14)
-    -- Hover: lines brighten so user sees the handle
-    ResizeHandle.MouseEnter:Connect(function()
-        for _, g in ipairs({_g1, _g2, _g3}) do
-            g.BackgroundColor3 = AccentColor
-            g.BackgroundTransparency = 0
-        end
-    end)
-    ResizeHandle.MouseLeave:Connect(function()
-        for _, g in ipairs({_g1, _g2, _g3}) do
-            g.BackgroundColor3 = _gripColor
-            g.BackgroundTransparency = 0.2
-        end
-    end)
+    -- // Resize — Obsidian pattern
+    -- ResizeHandle duduk di BottomBar (dibuat setelah BottomBar di bawah)
+    -- Deklarasi forward agar bisa dipakai di MakeWindowResizable
+    local ResizeHandle
 
     local function GetResizeLimits()
         local camera = workspace.CurrentCamera
         local size = camera and camera.ViewportSize or Vector2.new(650, 420)
-        local maxWidth = math.max(MIN_WIDTH, size.X - 20)
-        local maxHeight = math.max(MIN_HEIGHT, size.Y - 40)
-        return maxWidth, maxHeight
+        local maxW = math.max(MIN_WIDTH,  size.X - 20)
+        local maxH = math.max(MIN_HEIGHT, size.Y - 40)
+        return maxW, maxH
     end
 
-    local resizing = false
-    local resizeStart
-    local resizeStartSize
+    -- Obsidian-style MakeResizable:
+    -- • InputBegan pada handle → catat StartPos + FrameSize
+    -- • Input.Changed (per-input) → detect drag end reliably, disconnect self
+    -- • UserInputService.InputChanged → move only when Dragging + UI visible
+    -- • Safety: stop drag if ScreenGui destroyed or MainFrame invisible
+    local function MakeWindowResizable(handle)
+        local startPos
+        local frameSize
+        local dragging   = false
+        local changedConn
 
-    ResizeHandle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            resizing = true
-            resizeStart = input.Position
-            -- AbsoluteSize = always pixel Vector2, safe regardless of how Size is set
-            resizeStartSize = MainFrame.AbsoluteSize
-        end
-    end)
+        handle.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.MouseButton1
+                and input.UserInputType ~= Enum.UserInputType.Touch then
+                return
+            end
+            startPos  = input.Position
+            frameSize = MainFrame.Size   -- UDim2, .X.Offset always valid (fromOffset window)
+            dragging  = true
 
-    ResizeHandle.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            resizing = false
-        end
-    end)
+            -- Obsidian pattern: listen on the input object itself for release
+            -- More reliable than InputEnded which can miss if cursor leaves window
+            changedConn = input.Changed:Connect(function()
+                if input.UserInputState ~= Enum.UserInputState.End then return end
+                dragging = false
+                if changedConn and changedConn.Connected then
+                    changedConn:Disconnect()
+                    changedConn = nil
+                end
+            end)
+        end)
 
-    UserInputService.InputChanged:Connect(function(input)
-        if not resizing then return end
+        UserInputService.InputChanged:Connect(function(input)
+            -- Safety guard (Obsidian): stop if UI gone or not visible
+            if not MainFrame.Visible or not ScreenGui.Parent then
+                dragging = false
+                if changedConn and changedConn.Connected then
+                    changedConn:Disconnect()
+                    changedConn = nil
+                end
+                return
+            end
 
-        if input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch then
-            local delta = input.Position - resizeStart
-            local maxWidth, maxHeight = GetResizeLimits()
+            if not dragging then return end
+            if input.UserInputType ~= Enum.UserInputType.MouseMovement
+                and input.UserInputType ~= Enum.UserInputType.Touch then
+                return
+            end
 
-            -- resizeStartSize is Vector2 now (AbsoluteSize), use .X/.Y directly
-            local newWidth = math.clamp(
-                resizeStartSize.X + delta.X,
-                MIN_WIDTH,
-                maxWidth
+            local delta  = input.Position - startPos
+            local maxW, maxH = GetResizeLimits()
+
+            MainFrame.Size = UDim2.fromOffset(
+                math.clamp(frameSize.X.Offset + delta.X, MIN_WIDTH,  maxW),
+                math.clamp(frameSize.Y.Offset + delta.Y, MIN_HEIGHT, maxH)
             )
-
-            local newHeight = math.clamp(
-                resizeStartSize.Y + delta.Y,
-                MIN_HEIGHT,
-                maxHeight
-            )
-
-            MainFrame.Size = UDim2.fromOffset(newWidth, newHeight)
-        end
-    end)
+        end)
+    end
 
     Create("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 8)})
     Create("UIStroke", {Parent = MainFrame, Color = Color3.fromRGB(40, 40, 45), Thickness = 1})
@@ -493,6 +464,58 @@ function Library:CreateWindow(options)
 
     -- Drag bar: still controls MainFrame. Parent change doesn't affect drag logic.
     MakeDraggable(BottomDragHitbox, MainFrame)
+
+    -- // ResizeHandle — Obsidian style: lives inside BottomBar, square via RelativeYY
+    -- SizeConstraint=RelativeYY: Size=(1,1) scale means height=width=BottomBar.Height
+    -- AnchorPoint=(1,0) flush to right edge of BottomBar
+    ResizeHandle = Create("TextButton", {
+        Parent = BottomDragHitbox,
+        Text = "",
+        BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, 0, 0, 0),
+        Size = UDim2.fromScale(1, 1),
+        SizeConstraint = Enum.SizeConstraint.RelativeYY,  -- auto square like Obsidian
+        AutoButtonColor = false,
+        Active = true,
+        ZIndex = 147
+    })
+
+    -- Grip icon: 3 diagonal lines, brighten on hover
+    local _gripColor = Color3.fromRGB(90, 90, 95)
+    local function _makeGripLine(ox, oy, len)
+        local ln = Create("Frame", {
+            Parent = ResizeHandle,
+            BackgroundColor3 = _gripColor,
+            BackgroundTransparency = 0.2,
+            Size = UDim2.new(0, 2, 0, len),
+            Position = UDim2.new(1, ox, 1, oy),
+            AnchorPoint = Vector2.new(1, 1),
+            Rotation = 45,
+            ZIndex = 148,
+            BorderSizePixel = 0
+        })
+        Create("UICorner", {Parent = ln, CornerRadius = UDim.new(1, 0)})
+        return ln
+    end
+    local _g1 = _makeGripLine(-1, -1,  5)
+    local _g2 = _makeGripLine(-5, -1,  9)
+    local _g3 = _makeGripLine(-9, -1, 13)
+    ResizeHandle.MouseEnter:Connect(function()
+        for _, g in ipairs({_g1, _g2, _g3}) do
+            g.BackgroundColor3 = AccentColor
+            g.BackgroundTransparency = 0
+        end
+    end)
+    ResizeHandle.MouseLeave:Connect(function()
+        for _, g in ipairs({_g1, _g2, _g3}) do
+            g.BackgroundColor3 = _gripColor
+            g.BackgroundTransparency = 0.2
+        end
+    end)
+
+    -- Wire up Obsidian-style resize logic
+    MakeWindowResizable(ResizeHandle)
 
     local TopBar = Create("Frame", {Parent = MainFrame, BackgroundColor3 = BackgroundColor, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 0, 0), Active = true})
     MakeDraggable(TopBar, MainFrame)
