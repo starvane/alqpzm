@@ -130,104 +130,6 @@ local function MakeDraggable(topbar, object)
     end)
 end
 
--- // Utility: Obsidian-style Resizable Window
-local function MakeResizable(UI, DragFrame, Callback)
-    local dragging = false
-    local dragStart
-    local startSize
-    local endedConnection
-
-    DragFrame.Active = true
-
-    DragFrame.InputBegan:Connect(function(input)
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1
-            and input.UserInputType ~= Enum.UserInputType.Touch then
-            return
-        end
-
-        dragStart = input.Position
-        startSize = UI.Size
-        dragging = true
-
-        if endedConnection then
-            endedConnection:Disconnect()
-            endedConnection = nil
-        end
-
-        endedConnection = input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-
-                if endedConnection then
-                    endedConnection:Disconnect()
-                    endedConnection = nil
-                end
-            end
-        end)
-    end)
-
-    local inputChangedConnection
-    inputChangedConnection = UserInputService.InputChanged:Connect(function(input)
-        if not dragging then
-            return
-        end
-
-        if input.UserInputType ~= Enum.UserInputType.MouseMovement
-            and input.UserInputType ~= Enum.UserInputType.Touch then
-            return
-        end
-
-        if not UI.Visible or not UI.Parent then
-            dragging = false
-            return
-        end
-
-        local uiScale = UI:FindFirstChildOfClass("UIScale")
-        local scale = uiScale and math.max(uiScale.Scale, 0.01) or 1
-        local delta = input.Position - dragStart
-
-        local camera = workspace.CurrentCamera
-        local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
-
-        local minWidth = 430
-        local minHeight = 300
-        local maxWidth = math.max(minWidth, (viewport.X - 30) / scale)
-        local maxHeight = math.max(minHeight, (viewport.Y - 40) / scale)
-
-        local newWidth = math.clamp(
-            startSize.X.Offset + (delta.X / scale),
-            minWidth,
-            maxWidth
-        )
-
-        local newHeight = math.clamp(
-            startSize.Y.Offset + (delta.Y / scale),
-            minHeight,
-            maxHeight
-        )
-
-        UI.Size = UDim2.fromOffset(newWidth, newHeight)
-
-        if Callback then
-            Callback(newWidth, newHeight)
-        end
-    end)
-
-    UI.Destroying:Connect(function()
-        dragging = false
-
-        if inputChangedConnection then
-            inputChangedConnection:Disconnect()
-            inputChangedConnection = nil
-        end
-
-        if endedConnection then
-            endedConnection:Disconnect()
-            endedConnection = nil
-        end
-    end)
-end
-
 local AccentColor = Color3.fromRGB(190, 140, 255)
 local BackgroundColor = Color3.fromRGB(18, 18, 20)
 local CardColor = Color3.fromRGB(24, 24, 27)
@@ -271,7 +173,7 @@ function Library:CreateWindow(options)
     local subText = "Made By Hypol-X"
     local subColor = AccentColor
     local sphTextToggle = false
-    local sphWords = "OX"
+    local sphWords = "ZX"
     local sphImage = nil
     local topbarLogo = nil
     local logoSize = 32
@@ -420,29 +322,40 @@ function Library:CreateWindow(options)
         Btn.MouseButton1Click:Connect(function() OpenInfoWindow(data) end)
     end
 
-    local viewport = workspace.CurrentCamera and workspace.CurrentCamera.ViewportSize or Vector2.new(1280, 720)
-    local windowWidth = math.min(650, math.max(430, viewport.X - 30))
-    local windowHeight = math.min(420, math.max(300, viewport.Y - 60))
+    local viewport = workspace.CurrentCamera.ViewportSize
 
-    local MainFrame = Create("Frame", {Parent = ScreenGui, BackgroundColor3 = BackgroundColor, Size = UDim2.fromOffset(windowWidth, windowHeight), Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), ClipsDescendants = true, BackgroundTransparency = 1, Active = true})
+    local windowWidth = math.min(650, viewport.X - 30)
+    local windowHeight = math.min(420, viewport.Y - 60)
+
+    local MainFrame = Create("Frame", {
+        Parent = ScreenGui,
+        BackgroundColor3 = BackgroundColor,
+        Size = UDim2.fromOffset(windowWidth, windowHeight),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        ClipsDescendants = true,
+        BackgroundTransparency = 1,
+        Active = true
+    })
     local MainScale = Create("UIScale", {Parent = MainFrame, Scale = 0.8})
     Create("UICorner", {Parent = MainFrame, CornerRadius = UDim.new(0, 8)})
     Create("UIStroke", {Parent = MainFrame, Color = Color3.fromRGB(40, 40, 45), Thickness = 1})
     Tween(MainScale, {Scale = 1}, 0.5)
     Tween(MainFrame, {BackgroundTransparency = 0}, 0.5)
 
-    -- // OXIO BOTTOM CONTROL BAR
-    -- A wider invisible drag target with a thin floating visual bar.
-    -- The resize handle itself lives on the actual window corner, just like polished UI libraries.
+    -- // CORE ENGINE ADDITION: Floating Bottom Bar Natively Attached to ScreenGui
+    
+    -- The Drag Hitbox (Invisible but large for easy grabbing)
     local BottomDragHitbox = Create("Frame", {
         Parent = ScreenGui,
         BackgroundTransparency = 1,
-        Size = UDim2.fromOffset(360, 28),
+        Size = UDim2.new(0, 350, 0, 30),
         AnchorPoint = Vector2.new(0.5, 0.5),
         ZIndex = 145,
         Active = true
     })
 
+    -- The Visible Modern Bar (Sleeker, pill-shaped, dark gray outline)
     local FloatingBottomBar = Create("Frame", {
         Parent = BottomDragHitbox,
         BackgroundColor3 = CardColor,
@@ -451,119 +364,45 @@ function Library:CreateWindow(options)
         Position = UDim2.new(0, 0, 0.5, -3),
         ZIndex = 146
     })
-
-    Create("UICorner", {
-        Parent = FloatingBottomBar,
-        CornerRadius = UDim.new(1, 0)
-    })
-
+    Create("UICorner", {Parent = FloatingBottomBar, CornerRadius = UDim.new(1, 0)})
     local BottomBarStroke = Create("UIStroke", {
-        Parent = FloatingBottomBar,
-        Color = Color3.fromRGB(50, 50, 55),
-        Thickness = 1.2,
+        Parent = FloatingBottomBar, 
+        Color = Color3.fromRGB(50, 50, 55), 
+        Thickness = 1.2, 
         Transparency = 0
     })
 
+    -- Drags MainFrame when the larger invisible hitbox is pulled. Sync is perfect.
     MakeDraggable(BottomDragHitbox, MainFrame)
 
-    -- // Obsidian-style corner resize handle
-    local ResizeHandle = Create("TextButton", {
-        Parent = MainFrame,
-        BackgroundTransparency = 1,
-        Text = "",
-        AutoButtonColor = false,
-        AnchorPoint = Vector2.new(1, 1),
-        Position = UDim2.new(1, -3, 1, -3),
-        Size = UDim2.fromOffset(28, 28),
-        ZIndex = 150,
-        Active = true
-    })
+    RunService.RenderStepped:Connect(function()
+        if MainFrame and MainFrame.Visible then
+            BottomDragHitbox.Visible = true
 
-    local ResizeScale = Create("UIScale", {
-        Parent = ResizeHandle,
-        Scale = 1
-    })
+            local currentScale = MainScale.Scale
+            local frameHeight = MainFrame.AbsoluteSize.Y
+            local frameWidth = MainFrame.AbsoluteSize.X
 
-    local ResizeLine1 = Create("Frame", {
-        Parent = ResizeHandle,
-        BackgroundColor3 = SubTextColor,
-        BorderSizePixel = 0,
-        Size = UDim2.fromOffset(2, 7),
-        Position = UDim2.fromOffset(17, 17),
-        Rotation = 45,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        ZIndex = 151
-    })
+            BottomDragHitbox.Position = UDim2.new(
+                MainFrame.Position.X.Scale,
+                MainFrame.Position.X.Offset,
+                MainFrame.Position.Y.Scale,
+                MainFrame.Position.Y.Offset + (frameHeight / 2) + 20
+            )
 
-    local ResizeLine2 = Create("Frame", {
-        Parent = ResizeHandle,
-        BackgroundColor3 = SubTextColor,
-        BorderSizePixel = 0,
-        Size = UDim2.fromOffset(2, 11),
-        Position = UDim2.fromOffset(20, 14),
-        Rotation = 45,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        ZIndex = 151
-    })
+            BottomDragHitbox.Size = UDim2.new(
+                0,
+                frameWidth * 0.6,
+                0,
+                30 * currentScale
+            )
 
-    local ResizeLine3 = Create("Frame", {
-        Parent = ResizeHandle,
-        BackgroundColor3 = SubTextColor,
-        BorderSizePixel = 0,
-        Size = UDim2.fromOffset(2, 5),
-        Position = UDim2.fromOffset(23, 11),
-        Rotation = 45,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        ZIndex = 151
-    })
-
-    local function SetResizeVisual(active)
-        local targetColor = active and TextColor or SubTextColor
-        local targetScale = active and 1.08 or 1
-
-        Tween(ResizeLine1, {BackgroundColor3 = targetColor}, 0.12)
-        Tween(ResizeLine2, {BackgroundColor3 = targetColor}, 0.12)
-        Tween(ResizeLine3, {BackgroundColor3 = targetColor}, 0.12)
-        Tween(ResizeScale, {Scale = targetScale}, 0.12)
-    end
-
-    ResizeHandle.MouseEnter:Connect(function()
-        SetResizeVisual(true)
-    end)
-
-    ResizeHandle.MouseLeave:Connect(function()
-        SetResizeVisual(false)
-    end)
-
-    -- // Keep the external floating drag bar perfectly aligned without RenderStepped.
-    local function UpdateBottomBar()
-        if not MainFrame.Visible then
+            FloatingBottomBar.Size = UDim2.new(1, 0, 0, 6 * currentScale)
+            FloatingBottomBar.Position = UDim2.new(0, 0, 0.5, -(3 * currentScale))
+        else
             BottomDragHitbox.Visible = false
-            return
         end
-
-        BottomDragHitbox.Visible = true
-
-        local FrameSize = MainFrame.AbsoluteSize
-        local FramePos = MainFrame.AbsolutePosition
-        local BarWidth = math.clamp(FrameSize.X * 0.55, 220, 420)
-
-        BottomDragHitbox.Size = UDim2.fromOffset(BarWidth, 28)
-        BottomDragHitbox.Position = UDim2.fromOffset(
-            FramePos.X + (FrameSize.X / 2),
-            FramePos.Y + FrameSize.Y + 18
-        )
-
-        local Scale = MainScale.Scale
-        FloatingBottomBar.Size = UDim2.new(1, 0, 0, 6 * Scale)
-        FloatingBottomBar.Position = UDim2.new(0, 0, 0.5, -(3 * Scale))
-    end
-
-    MainFrame:GetPropertyChangedSignal("Size"):Connect(UpdateBottomBar)
-    MainFrame:GetPropertyChangedSignal("Position"):Connect(UpdateBottomBar)
-    MainFrame:GetPropertyChangedSignal("Visible"):Connect(UpdateBottomBar)
-    MainScale:GetPropertyChangedSignal("Scale"):Connect(UpdateBottomBar)
-    UpdateBottomBar()
+    end)
 
     local TopBar = Create("Frame", {Parent = MainFrame, BackgroundColor3 = BackgroundColor, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 0, 0), Active = true})
     MakeDraggable(TopBar, MainFrame)
@@ -585,7 +424,7 @@ function Library:CreateWindow(options)
     local Title = Create("TextLabel", {Parent = TitleContainer, Text = hubName, Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = TextColor, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 5), Size = UDim2.new(1, 0, 0, 16), TextXAlignment = Enum.TextXAlignment.Left})
     local Subtitle = Create("TextLabel", {Parent = TitleContainer, Text = subText, Font = Enum.Font.Gotham, TextSize = 10, TextColor3 = subColor, BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 22), Size = UDim2.new(1, 0, 0, 12), TextXAlignment = Enum.TextXAlignment.Left})
 
-    local SearchBar = Create("Frame", {Parent = TopBar, BackgroundColor3 = CardColor, Size = UDim2.fromOffset(math.max(150, windowWidth - (titleOffsetX + 175) - 105), 26), Position = UDim2.new(0, titleOffsetX + 175, 0.5, -13)})
+    local SearchBar = Create("Frame", {Parent = TopBar, BackgroundColor3 = CardColor, Size = UDim2.new(0, 250, 0, 26), Position = UDim2.new(0, 180, 0.5, -13)})
     Create("UICorner", {Parent = SearchBar, CornerRadius = UDim.new(0, 6)})
     local SearchIcon = Create("ImageLabel", {Parent = SearchBar, BackgroundTransparency = 1, Image = "rbxassetid://6031154871", ImageColor3 = SubTextColor, Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(0, 8, 0.5, -7)})
     local SearchInput = Create("TextBox", {Parent = SearchBar, BackgroundTransparency = 1, Size = UDim2.new(1, -30, 1, 0), Position = UDim2.new(0, 30, 0, 0), Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = TextColor, PlaceholderText = "Search..", TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false})
@@ -593,9 +432,7 @@ function Library:CreateWindow(options)
     local CloseBtn = Create("TextButton", {Parent = TopBar, Text = "X", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = SubTextColor, BackgroundTransparency = 1, Size = UDim2.new(0, 30, 1, 0), Position = UDim2.new(1, -35, 0, 0)})
     local MinBtn = Create("TextButton", {Parent = TopBar, Text = "—", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = SubTextColor, BackgroundTransparency = 1, Size = UDim2.new(0, 30, 1, 0), Position = UDim2.new(1, -65, 0, 0)})
 
-    local InitialSidebarWidth = math.clamp(windowWidth * 0.25, 135, 175)
-
-    local Sidebar = Create("Frame", {Parent = MainFrame, BackgroundColor3 = BackgroundColor, BackgroundTransparency = 1, Size = UDim2.new(0, InitialSidebarWidth, 1, -40), Position = UDim2.new(0, 0, 0, 40), Active = true})
+    local Sidebar = Create("Frame", {Parent = MainFrame, BackgroundColor3 = BackgroundColor, BackgroundTransparency = 1, Size = UDim2.new(0, 160, 1, -40), Position = UDim2.new(0, 0, 0, 40), Active = true})
     local TabSearchBox = Create("TextBox", {Parent = Sidebar, BackgroundColor3 = CardColor, Size = UDim2.new(1, -20, 0, 26), Position = UDim2.new(0, 10, 0, 5), Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = TextColor, PlaceholderText = "Search tabs...", TextXAlignment = Enum.TextXAlignment.Left, ClearTextOnFocus = false})
     Create("UIPadding", {Parent = TabSearchBox, PaddingLeft = UDim.new(0, 8)})
     Create("UICorner", {Parent = TabSearchBox, CornerRadius = UDim.new(0, 4)})
@@ -603,28 +440,9 @@ function Library:CreateWindow(options)
     
     local TabContainer = Create("ScrollingFrame", {Parent = Sidebar, BackgroundTransparency = 1, Size = UDim2.new(1, -15, 1, -40), Position = UDim2.new(0, 10, 0, 40), ScrollBarThickness = 0})
     Create("UIListLayout", {Parent = TabContainer, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 5)})
-    local Divider = Create("Frame", {Parent = MainFrame, BackgroundColor3 = Color3.fromRGB(40, 40, 45), BorderSizePixel = 0, Size = UDim2.new(0, 1, 1, -40), Position = UDim2.new(0, InitialSidebarWidth, 0, 40)})
+    local Divider = Create("Frame", {Parent = MainFrame, BackgroundColor3 = Color3.fromRGB(40, 40, 45), BorderSizePixel = 0, Size = UDim2.new(0, 1, 1, -40), Position = UDim2.new(0, 160, 0, 40)})
 
-    local ContentArea = Create("Frame", {Parent = MainFrame, BackgroundTransparency = 1, Size = UDim2.new(1, -InitialSidebarWidth - 5, 1, -40), Position = UDim2.new(0, InitialSidebarWidth + 5, 0, 40), Active = true})
-
-    -- // Resize behavior / responsive layout
-    MakeResizable(MainFrame, ResizeHandle, function(NewWidth, NewHeight)
-        local SidebarWidth = math.clamp(NewWidth * 0.25, 135, 175)
-
-        Sidebar.Size = UDim2.new(0, SidebarWidth, 1, -40)
-        Divider.Position = UDim2.new(0, SidebarWidth, 0, 40)
-        ContentArea.Position = UDim2.new(0, SidebarWidth + 5, 0, 40)
-        ContentArea.Size = UDim2.new(1, -SidebarWidth - 5, 1, -40)
-
-        local SearchStart = titleOffsetX + 175
-        local SearchEndSpace = 105
-        local AvailableWidth = NewWidth - SearchStart - SearchEndSpace
-
-        SearchBar.Position = UDim2.new(0, SearchStart, 0.5, -13)
-        SearchBar.Size = UDim2.fromOffset(math.max(150, AvailableWidth), 26)
-
-        UpdateBottomBar()
-    end)
+    local ContentArea = Create("Frame", {Parent = MainFrame, BackgroundTransparency = 1, Size = UDim2.new(1, -165, 1, -40), Position = UDim2.new(0, 165, 0, 40), Active = true})
 
     local Sphere = Create("ImageButton", {Parent = ScreenGui, BackgroundColor3 = BackgroundColor, BackgroundTransparency = 0.2, Size = UDim2.new(0, 50, 0, 50), Position = UDim2.new(0.5, 0, 0.5, 0), AnchorPoint = Vector2.new(0.5, 0.5), Visible = false, AutoButtonColor = false, ImageTransparency = 1, ClipsDescendants = true})
     Create("UICorner", {Parent = Sphere, CornerRadius = UDim.new(1, 0)})
